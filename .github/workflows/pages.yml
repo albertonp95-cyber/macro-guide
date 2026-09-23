@@ -1,0 +1,42 @@
+# Publica `site/` en GitHub Pages.
+#
+# Se despliega por workflow y no por rama porque el modo "deploy from branch"
+# solo admite la raiz o `docs/`, y ninguna de las dos sirve aqui: la raiz es el
+# codigo y `docs/` es la documentacion del proyecto --con `registro.json`, que
+# precisamente no se publica--.
+#
+# Este workflow NO genera el sitio: lo sube tal cual. La generacion es un paso
+# manual y deliberado (`python publicar_sitio.py`), porque redactar la copia
+# publica necesita la cache local de datos, que no esta en el repositorio. Lo
+# que se despliega es lo que ya paso por la verificacion antes de escribirse.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
