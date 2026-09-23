@@ -13,7 +13,8 @@ import re
 import numpy as np
 
 import config
-from snapshot.build import fecha_larga, fecha_corta, minus
+from snapshot.build import (MACRO_PILARES, TECNICO_PILARES,
+                            fecha_larga, fecha_corta, minus)
 
 
 # --------------------------------------------------------------- utilidades
@@ -4471,15 +4472,16 @@ def render_html(snap: dict) -> str:
   <details class="mas" id="tec-macro">
     <summary>Tabla completa, con las señales técnicas y macro por separado</summary>
     {_posicionamiento_html(snap.get('posicionamiento') or [])}
-    <p class="note">Señales técnicas: tendencia, volatilidad y crédito. Señales macro:
-       crecimiento, liquidez, inflación y posicionamiento. Cada celda apunta en los
-       términos de la clase.</p>
+    <p class="note">Señales técnicas: {config.lista_pilares(TECNICO_PILARES)}.
+       Señales macro: {config.lista_pilares(MACRO_PILARES)}.
+       Cada celda apunta en los términos de la clase.</p>
   </details>
 
   <h3 class="sx-s">Qué dicen las fuentes</h3>
   <p class="legend">Solo lo que la fuente <b>aporta</b> y el tablero no ve: la lectura
      doble de un indicador y el porqué detrás de un dato. Nada de esto se suma al
-     tablero. Solo fuentes de las últimas dos semanas.{futuros}</p>
+     tablero. Solo fuentes vigentes: dos semanas, salvo un documento
+     estructural que declare más vida.{futuros}</p>
   {_fuentes_lectura(reg)}
 
   <h3 class="sx-s">Traducción por mandato</h3>
@@ -4917,9 +4919,9 @@ def render_md(snap: dict) -> str:
             A(f"| {rp['label']} | {_cellmd(rp['tecnico'])} | {_cellmd(rp['macro'])} | "
               f"{act} | {ant} |")
         A("")
-        A("*Señales técnicas: tendencia, volatilidad y crédito. Señales macro: crecimiento, "
-          "liquidez, inflación y posicionamiento. Cada celda apunta en los términos de la "
-          "clase. El • marca las clases que cambiaron respecto al mes anterior.*")
+        A(f"*Señales técnicas: {config.lista_pilares(TECNICO_PILARES)}. Señales macro: "
+          f"{config.lista_pilares(MACRO_PILARES)}. Cada celda apunta en los términos de "
+          f"la clase. El • marca las clases que cambiaron respecto al mes anterior.*")
         A("")
     pp = (snap["senales"].get("por_pilar") or {}) if snap["senales"].get("disponible") else {}
     if pp:

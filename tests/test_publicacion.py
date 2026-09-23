@@ -140,6 +140,35 @@ def test_la_lectura_publicada_es_la_misma():
         assert pg and pg.upper() in pub, f"{f}: la postura no se publica"
 
 
+def test_no_desaparece_ninguna_ficha_que_no_se_retiene():
+    """Retirar una ficha no puede llevarse por delante la de al lado.
+
+    La primera versión cortaba la ficha por su línea «Origen:», que solo
+    existe en una de las dos plantillas; en la compacta seguía buscando y se
+    comía las fichas intermedias —entre ellas la del J.P. Morgan, que no es de
+    las retenidas—. Un borrado silencioso: ningún verificador lo canta, porque
+    quitar de más nunca es una fuga.
+    """
+    for f in FECHAS + ["2026-09-23"]:
+        snap, doc, pub = _par(f)
+        antes = doc.count('class="doc-item"')
+        despues = pub.count('class="doc-item"')
+        assert antes == despues, (
+            f"{f}: {antes} fichas antes y {despues} después; retirar no es borrar")
+        # y las que no se retienen siguen enteras, con su título
+        retenidos = {d.get("titulo") for d in publicar.documentos_retenidos(snap)}
+        for d in ((snap.get("documentos") or {}).get("documentos") or []):
+            if d.get("titulo") in retenidos:
+                continue
+            assert _html_esc(d["titulo"]) in pub, (
+                f'{f}: desapareció la ficha «{d["titulo"]}», que no es de las retenidas')
+
+
+def _html_esc(t: str) -> str:
+    import html
+    return html.escape(t, quote=True)
+
+
 def test_lo_unico_que_cambia_es_lo_retenido():
     """La diferencia entre las dos copias tiene que estar ACOTADA: el aviso, y
     los entornos de las series retenidas. Si la redacción tocara otra cosa, la

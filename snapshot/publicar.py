@@ -187,7 +187,27 @@ def _scrub_cerca(doc: str, nombres: list[str], num: str,
     return doc
 
 
-_CARD = re.compile(r'<div class="doc-item">.*?Origen:.*?</p>\s*</div>', re.S)
+_MARCA_FICHA = '<div class="doc-item">'
+_DIV = re.compile(r"<div\b|</div>", re.I)
+
+
+def _fin_bloque(doc: str, ini: int) -> int:
+    """El índice justo después del </div> que cierra la ficha que abre en `ini`.
+
+    Hace falta contar etiquetas porque la ficha se renderiza de DOS maneras: la
+    versión larga acaba en «Origen: ...</p></div>» y la compacta no lleva esa
+    línea. Cortar por «Origen:» --que es lo que hacía antes-- funcionaba en una
+    y en la otra se comía las fichas siguientes hasta encontrar un «Origen:»
+    tres tarjetas más abajo. Se llevó por delante la del J.P. Morgan, que no
+    era de las retenidas: un borrado silencioso, que es peor que una fuga
+    porque no lo canta ningún verificador.
+    """
+    prof = 0
+    for m in _DIV.finditer(doc, ini):
+        prof += 1 if m.group(0).lower().startswith("<div") else -1
+        if prof == 0:
+            return m.end()
+    return len(doc)
 
 
 def documentos_retenidos(snap: dict) -> list[dict]:
@@ -205,22 +225,28 @@ def documentos_retenidos(snap: dict) -> list[dict]:
             if "bloomberg" in (d.get("fuente") or "").lower()]
 
 
+_NOTA_FICHA = ('<div class="doc-item"><p class="tesis pub-x">Ficha de research '
+               'retenida en la copia pública: la fuente es Bloomberg y sus '
+               'cifras no pueden redistribuirse fuera de la terminal.</p></div>')
+
+
 def _retira_documentos(doc: str, fichas: list[dict]) -> str:
-    """Quita la ficha entera, y DICE que se quito. No se borra en silencio."""
+    """Quita la ficha entera, y DICE que se quito. No se borra en silencio.
+
+    Se recorre de atras adelante para que los indices de las fichas que quedan
+    por mirar no se muevan al sustituir.
+    """
     if not fichas:
         return doc
-    titulos = {d.get("titulo") or "" for d in fichas}
-
-    def _quita(m):
-        bloque = m.group(0)
-        if any(t and _html.escape(t, quote=True) in bloque for t in titulos):
-            return ('<div class="doc-item"><p class="tesis pub-x">Ficha de '
-                    'research retenida en la copia pública: la fuente es '
-                    'Bloomberg y sus cifras no pueden redistribuirse fuera de '
-                    'la terminal.</p></div>')
-        return bloque
-
-    return _CARD.sub(_quita, doc)
+    titulos = {_html.escape(d.get("titulo") or "", quote=True)
+               for d in fichas if d.get("titulo")}
+    inicios = [m.start() for m in re.finditer(re.escape(_MARCA_FICHA), doc)]
+    for ini in reversed(inicios):
+        fin = _fin_bloque(doc, ini)
+        bloque = doc[ini:fin]
+        if any(t in bloque for t in titulos):
+            doc = doc[:ini] + _NOTA_FICHA + doc[fin:]
+    return doc
 
 
 def redactar(doc: str, snap: dict) -> tuple[str, list[dict]]:

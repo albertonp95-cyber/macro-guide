@@ -347,6 +347,23 @@ def concepto_verbo(pilar: str, singular: str, plural: str) -> str:
     return plural if pilar in CONCEPTO_PLURAL else singular
 
 
+def lista_pilares(keys) -> str:
+    """«crecimiento, condiciones monetarias, inflacion y posicionamiento».
+
+    La leyenda que explica que hay en cada bloque llevaba los cuatro nombres
+    escritos a mano, asi que se quedo diciendo "liquidez" cuando el pilar paso
+    a llamarse "condiciones monetarias" --el mismo fallo que PILAR_NOMBRE ya
+    habia tenido en la prosa (SEMANTIC-PASS 11)--. Derivarla cierra la puerta.
+    """
+    xs = [pilar_prosa(k) for k in keys]
+    if len(xs) <= 1:
+        return xs[0] if xs else ""
+    # Separador de punto medio, no "y": "Extension y valor relativo" ya lleva
+    # una "y" dentro, y la lista acababa en "inflacion y extension y valor
+    # relativo", que se lee como cinco pilares en vez de cuatro.
+    return " · ".join(xs)
+
+
 def dimension_breve(key: str, label: str = "") -> str:
     """El nombre de la dimension SIN el parentesis explicativo.
 
