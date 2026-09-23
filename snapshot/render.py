@@ -894,13 +894,32 @@ details.mas>summary:hover{color:var(--ink)}
 .fz{margin:0 0 4px}
 .fz-h{font:600 9px/1.2 var(--sans);letter-spacing:.07em;text-transform:uppercase;
   color:var(--faint);margin-bottom:5px}
-.fz-l{font:400 10.5px var(--sans);fill:var(--ink)}
-.fz-ctx{fill:var(--faint)}
+/* Rejilla y no SVG: el texto mide lo que mide y la columna se ajusta sola.
+   Con las coordenadas fijas del SVG, «Cond. monetarias» se salia de su carril
+   y se imprimia encima de la nota. */
+.fz-g{display:grid;grid-template-columns:auto auto minmax(80px,1fr) auto;
+  gap:6px 10px;align-items:center}
+.fz-r{display:contents}
+.fz-l{font:400 11.5px/1.3 var(--sans);color:var(--ink)}
+.fz-v{font:600 11px/1.3 var(--sans);color:var(--muted);text-align:right;
+  font-variant-numeric:tabular-nums}
+.fz-b{position:relative;height:9px;min-width:60px}
+.fz-b::before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;
+  width:1px;background:var(--rule)}
+.fz-b i{position:absolute;top:0;height:9px;opacity:.82}
+.fz-b i.fav{background:var(--fav)}
+.fz-b i.adv{background:var(--adv)}
+.fz-b i.neu{background:var(--neu)}
 /* §8 · el significado, a la derecha: «85» no dice si es bueno. */
-.fz-s{font:600 8.5px var(--sans);fill:var(--muted);letter-spacing:.03em}
-.fz-v{font:600 10px var(--sans);fill:var(--muted);text-anchor:end}
-.fz-cap{font:400 8.5px var(--sans);fill:var(--faint);text-anchor:middle}
-.fz-mid{stroke:var(--rule);stroke-width:1}
+.fz-s{font:600 9px/1.3 var(--sans);color:var(--muted);letter-spacing:.03em;
+  white-space:nowrap}
+.fz-cap{font:400 9.5px/1.45 var(--sans);color:var(--faint);margin:8px 0 0}
+/* En pantalla estrecha la lectura se va a su propia línea antes que apretar
+   la barra hasta que deje de decir nada. */
+@media (max-width: 560px){
+  .fz-g{grid-template-columns:auto auto minmax(70px,1fr)}
+  .fz-s{grid-column:1 / -1;margin:-2px 0 4px}
+}
 /* --- bloques de interpretacion --- */
 .interp{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
 .ib{border-top:2px solid var(--ink);padding-top:7px}
@@ -3310,46 +3329,50 @@ def _fuerzas_svg(snap: dict) -> str:
     escala orientada 0-100 con 50 = neutral. No se compone nada nuevo: se ponen
     uno debajo de otro para que se vea de un vistazo quien empuja y quien frena,
     que es la pregunta que hoy exige leer siete filas de una tabla.
+
+    POR QUE NO ES UN SVG. Lo fue, y por eso se rompio: con el nombre, la nota y
+    la lectura colocados por coordenada dentro de un viewBox fijo, la fila
+    entera depende de cuanto mida un texto. "Cond. monetarias" no cabia en su
+    carril y salia "41Cond. monetarias" encima de la nota, ademas de cortada
+    por la izquierda. Ensanchar el viewBox solo mueve el punto de rotura al
+    siguiente nombre largo, o a la primera maquina con otra fuente --y esto es
+    un HTML autocontenido que se abre en ordenadores que no conozco--.
+
+    En una rejilla CSS el texto mide lo que mide y las columnas se ajustan.
+    Como efecto secundario, el nombre, la nota y la lectura pasan a ser texto
+    de verdad: un lector de pantalla lee "Credito 87 Apoya riesgo" sin
+    necesidad de que nadie escriba un `aria-label` paralelo que se desincronice.
+    Lo unico que sigue siendo dibujo es la barra, que es lo unico que de verdad
+    lo es.
     """
     pil = [p for p in snap.get("tablero", []) if np.isfinite(p.get("score", np.nan))]
     if not pil:
         return ""
     pil = sorted(pil, key=lambda p: -p["score"])
-    W, FILA, TOP = 300, 24, 16
-    H = TOP + FILA * len(pil) + 8
-    cx = 132.0
-    barras, etiquetas = "", ""
-    for i, p in enumerate(pil):
-        y = TOP + i * FILA
+    filas = ""
+    for p in pil:
         v = float(p["score"])
-        x = cx + (v - 50.0) * (cx - 8) / 50.0
-        x0, x1 = (cx, x) if v >= 50 else (x, cx)
-        col = ("var(--fav)" if p["lectura"] == "favorable"
-               else "var(--adv)" if p["lectura"] == "adverso" else "var(--neu)")
+        cls = ("fav" if p["lectura"] == "favorable"
+               else "adv" if p["lectura"] == "adverso" else "neu")
+        # La pista es el rango +-50 puntos a todo lo ancho, asi que un punto es
+        # un uno por ciento y la barra sale de la mitad hacia su lado.
+        if v >= 50:
+            geo = f'left:50%;width:{v - 50:.1f}%'
+        else:
+            geo = f'right:50%;width:{50 - v:.1f}%'
         # §8 y §10: nadie debería tener que deducir si 85 es bueno o malo.
         sig = config.LECTURA_PM.get(p["lectura"], p["lectura"])
         ctx_ = "" if p.get("eje") else ' · contexto'
-        etiquetas += (f'<text x="{W - 4}" y="{y + 1:.1f}" class="fz-s" '
-                      f'text-anchor="end">{esc(sig)}{esc(ctx_)}</text>')
-        barras += (f'<rect x="{x0:.1f}" y="{y - 5.5:.1f}" width="{abs(x1 - x0):.1f}" '
-                   f'height="8" fill="{col}" opacity=".82"/>'
-                   f'<text x="{cx - (cx - 8) - 4:.0f}" y="{y + 1:.1f}" '
-                   f'class="fz-v" text-anchor="end">{v:.0f}</text>')
-        etiquetas += (f'<text x="0" y="{y + 1:.1f}" class="fz-l">'
-                      f'{esc(config.PILAR_BREVE.get(p["key"], p["label"]))}</text>')
-    resumen = "; ".join(
-        f'{config.PILAR_BREVE.get(p["key"], p["label"])} {p["score"]:.0f}, '
-        f'{config.LECTURA_PM.get(p["lectura"], p["lectura"]).lower()}' for p in pil)
+        filas += (f'<div class="fz-r">'
+                  f'<span class="fz-l">'
+                  f'{esc(config.PILAR_BREVE.get(p["key"], p["label"]))}</span>'
+                  f'<span class="fz-v">{v:.0f}</span>'
+                  f'<span class="fz-b"><i class="{cls}" style="{geo}"></i></span>'
+                  f'<span class="fz-s">{esc(sig)}{esc(ctx_)}</span></div>')
     return (f'<figure class="fz"><figcaption class="fz-h">Qué está impulsando '
-            f'el régimen</figcaption>'
-            f'<svg viewBox="0 -10 {W} {H}" width="100%" height="{H + 10}" role="img" '
-            f'aria-label="Qué está impulsando el régimen. {esc(resumen)}.">'
-            f'<title>Qué está impulsando el régimen</title>'
-            f'<desc>Cada fuerza con su nota de 0 a 100: 50 es neutral y más alto '
-            f'es más favorable para tomar riesgo. {esc(resumen)}.</desc>'
-            f'<line x1="{cx}" y1="2" x2="{cx}" y2="{H - 10}" class="fz-mid"/>'
-            f'<text x="{cx}" y="-2" class="fz-cap">50 · neutral</text>'
-            f'{barras}{etiquetas}</svg></figure>')
+            f'el régimen</figcaption><div class="fz-g">{filas}</div>'
+            f'<p class="fz-cap">La marca central es 50, neutral; cuanto más a '
+            f'la derecha, más favorable para tomar riesgo.</p></figure>')
 
 
 def _pilares_contexto_html(snap: dict) -> str:

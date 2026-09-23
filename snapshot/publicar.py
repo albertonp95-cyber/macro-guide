@@ -286,8 +286,16 @@ def redactar(doc: str, snap: dict) -> tuple[str, list[dict]]:
         n=len(fuera),
         lista=_html.escape(", ".join(config.SHORT.get(i["key"], i["label"])
                                      for i in fuera)))
-    # justo debajo de la cabecera, antes de nada que se pueda leer como dato
-    doc = doc.replace("</header>", "</header>\n" + aviso, 1)
+    # DENTRO de la columna de contenido, no detrás de la cabecera. `header` y
+    # `.cuerpo` llevan su propio `margin-left` para dejar sitio a la navegación
+    # fija; un hermano suyo sin ese margen sale a sangre y se mete debajo del
+    # índice lateral, encima del texto. Colgarlo de `.cuerpo` le hace heredar
+    # la columna, y seguir heredándola si la columna cambia.
+    ancla = '<div class="cuerpo">'
+    if ancla in doc:
+        doc = doc.replace(ancla, ancla + "\n" + aviso, 1)
+    else:
+        doc = doc.replace("</header>", "</header>\n" + aviso, 1)
     doc = doc.replace("</style>", _CSS + "</style>", 1)
     return doc, informe
 
