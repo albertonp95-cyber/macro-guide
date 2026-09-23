@@ -1,0 +1,6 @@
+pandas>=2.2
+numpy>=1.26
+yfinance>=0.2.40
+# Opcional: solo para refrescar el credito real desde la Terminal Bloomberg.
+# El snapshot funciona sin el, con la cache o el proxy de FRED.
+# blpapi>=3.24

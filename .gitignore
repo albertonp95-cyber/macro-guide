@@ -1,0 +1,39 @@
+# Git NO admite comentarios al final de una línea: `output/  # nota` se toma
+# como patrón literal y no ignora nada. Cada comentario, en su propia línea.
+
+# ----------------------------------------------------------------- generado
+__pycache__/
+*.pyc
+_pdf.txt
+_pub_test.html
+
+# Los documentos internos, SIN redactar.
+output/
+
+# Copias sueltas en la raíz.
+/snapshot-*.html
+/snapshot-*.pdf
+
+# ---------------------------------------- datos de terminal y sus derivados
+# Bloomberg permite consultar en la terminal, no redistribuir fuera de ella.
+# Nada de esto sale del disco local: ni las series, ni sus percentiles, ni los
+# extractos de research de la terminal. Lo que se publica es site/, que pasa
+# por snapshot/publicar.py y se verifica antes de escribirse.
+
+# Series crudas, incluidas bbg_hy_oas.csv y bbg_ig_oas.csv.
+data/cache/
+
+# El archivo de estados guarda percentiles de esas series.
+data/historico/
+
+# Extractos de Bloomberg Intelligence y de Markets Live.
+docs/registro.json
+
+# Documentos renderizados sin redactar.
+baseline/
+
+# ------------------------------------------------------ research de terceros
+# PDFs con licencia ajena: Bloomberg Intelligence, WSJ, J.P. Morgan, FT.
+# Se leen, se citan y se resumen; no se redistribuyen.
+research/
+docs/research/
