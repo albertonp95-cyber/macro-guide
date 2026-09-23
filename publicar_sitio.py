@@ -90,8 +90,16 @@ def main() -> int:
         print(f"  {f}: ok · {len(informe)} elementos retenidos")
 
     if not a.verificar:
+        # El índice lista TODO lo que hay en site/, no solo lo generado en esta
+        # pasada. Con `--fecha`, escribir solo `hechas` borraba del índice las
+        # páginas de las semanas anteriores, que seguían ahí y dejaban de tener
+        # enlace: es justo lo que hace la publicación semanal.
+        publicadas = sorted({
+            m.group(1) for p in glob.glob(os.path.join(SITE, "snapshot-*.html"))
+            for m in [re.search(r"snapshot-(\d{4}-\d{2}-\d{2})\.html$",
+                                os.path.basename(p))] if m})
         with open(os.path.join(SITE, "index.html"), "w", encoding="utf-8") as fh:
-            fh.write(publicar.indice(hechas))
+            fh.write(publicar.indice(sorted(publicadas)))
         # Pages no sirve rutas que empiezan por guion bajo si hay Jekyll; con
         # .nojekyll el sitio se publica tal cual, que es lo que queremos.
         open(os.path.join(SITE, ".nojekyll"), "w").close()

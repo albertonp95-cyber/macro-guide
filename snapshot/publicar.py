@@ -296,8 +296,27 @@ def redactar(doc: str, snap: dict) -> tuple[str, list[dict]]:
         doc = doc.replace(ancla, ancla + "\n" + aviso, 1)
     else:
         doc = doc.replace("</header>", "</header>\n" + aviso, 1)
+    doc = _meta_retenidos(doc, len(fuera))
     doc = doc.replace("</style>", _CSS + "</style>", 1)
     return doc, informe
+
+
+_META = re.compile(r'(<p class="meta">.*?\d+ de \d+ indicadores con dato)',
+                   re.S)
+
+
+def _meta_retenidos(doc: str, n: int) -> str:
+    """«42 de 42 indicadores con dato (4 con el valor retenido)».
+
+    El recuento NO se baja a 38: la lectura se calcula con los 42, y decir 38
+    seria mentir sobre con que se hizo. Lo que faltaba era la otra mitad de la
+    frase, porque tres centimetros mas abajo hay cuatro filas sin cifra y la
+    cabecera parecia contradecirlas.
+    """
+    if not n:
+        return doc
+    return _META.sub(
+        lambda m: f"{m.group(1)} ({n} con el valor retenido)", doc, count=1)
 
 
 _CSS = """

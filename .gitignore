@@ -37,3 +37,6 @@ baseline/
 # Se leen, se citan y se resumen; no se redistribuyen.
 research/
 docs/research/
+
+# Registros de la publicacion semanal: son de esta maquina, no del repo.
+logs/
