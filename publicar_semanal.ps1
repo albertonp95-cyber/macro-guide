@@ -48,6 +48,10 @@ function Corre($desc, $exe, $argumentos) {
   return $salida
 }
 
+# La salida de python trae acentos y el signo ×; sin esto, la consola la
+# decodifica con la pagina de codigos OEM y el log queda ilegible justo cuando
+# hay que leerlo, que es cuando algo ha fallado.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $env:PYTHONIOENCODING = "utf-8"
 # Sin terminal que conteste: si git pidiera credenciales, mejor que falle en el
 # acto y quede en el log que colgarse hasta el timeout de la tarea programada.
