@@ -288,7 +288,10 @@ h2{font:600 10.5px/1 -apple-system,Segoe UI,sans-serif;letter-spacing:.15em;
 .pguide .ineu{color:#a9a294}
 .pguide .hz{font-size:11.5px;white-space:nowrap;color:var(--muted)}
 .pguide .tdif{display:block;font-size:10px;color:#8a6d1f;margin-top:3px;white-space:nowrap}
-.pguide .fav,.pguide .evi{font-size:11.5px;color:var(--muted);line-height:1.35;min-width:150px}
+/* `td.fav` y no `.fav`: el marcador de la pista lleva tambien la clase
+   `fav` como color, y este min-width lo convertia en una elipse de 150 px. */
+.pguide td.fav,.pguide td.evi{font-size:11.5px;color:var(--muted);
+  line-height:1.35;min-width:150px}
 .pguide .gnota{display:block;font-size:10.5px;font-style:italic;color:var(--faint);margin-top:3px}
 /* regimen vs tactico */
 .rt{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 6px}
@@ -1037,7 +1040,11 @@ a.drv:hover,a.drv:focus{color:var(--ink);border-bottom-color:var(--ink)}
   .pc-i::before{content:"Por qué importa: ";color:var(--faint)}
 }
 .tp-q{stroke:var(--rule);stroke-width:.5;opacity:.6}
-.tp-ax{font:400 7.5px var(--sans);fill:var(--faint)}
+/* El eje es HTML, no <text> dentro del SVG: ahi compartia caja con la banda y
+   la pisaba en cuanto la fuente del sistema renderizaba algo mas alto de lo
+   previsto --como pasa en Safari--. Fuera del dibujo, mide lo que mide. */
+.tp-ax{display:flex;justify-content:space-between;font-size:8.5px;
+  color:var(--faint);margin:2px 0 0;line-height:1.3}
 .tp-bp{fill:var(--fav);opacity:.75} .tp-bd{fill:var(--adv);opacity:.75}
 .tp-b0{fill:var(--neu);opacity:.55}
 .tp-leg{font-size:10.5px;color:var(--muted);line-height:1.6;margin:2px 0 0}
@@ -1049,12 +1056,18 @@ a.drv:hover,a.drv:focus{color:var(--ink);border-bottom-color:var(--ink)}
   padding:9px;margin:0}
 .tp-nd-t{font:400 8px var(--sans);fill:var(--faint)}
 .tp-av{font-size:10px;color:var(--muted);margin:3px 0 0;line-height:1.4}
-/* El grid va en la FILA, no en el bloque: con el grid en .tp-sum cada .tp-r
-   era una celda y dos observaciones distintas acababan en la misma linea. */
-.tp-sum{margin:8px 0 12px;padding:9px 0;border-top:1px solid var(--rule);
+/* El grid es del bloque y las filas son `display:contents`: asi las dos
+   columnas se comparten --los valores quedan alineados entre filas-- y la del
+   rotulo la dimensiona el texto mas largo. Con un ancho fijo de 160 px, «Sin
+   movimiento apreciable» media 182 y se imprimia encima del valor. */
+.tp-sum{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;
+  margin:8px 0 12px;padding:9px 0;border-top:1px solid var(--rule);
   border-bottom:1px solid var(--rule);font-size:12px}
-.tp-r{display:grid;grid-template-columns:160px 1fr;gap:2px 12px;padding:2px 0}
-@media (max-width: 720px){.tp-r{grid-template-columns:1fr;gap:0}}
+.tp-r{display:contents}
+@media (max-width: 720px){
+  .tp-sum{grid-template-columns:1fr;gap:0}
+  .tp-rv{margin-bottom:5px}
+}
 .tp-rk{font:600 9px/1.6 var(--sans);letter-spacing:.06em;text-transform:uppercase;
   color:var(--faint);white-space:nowrap}
 .tp-rv{color:var(--ink)}
@@ -1132,8 +1145,15 @@ html[data-view="pm"] .vw-mas{display:block}
 .px{margin:14px 0 6px}
 .px-h{font:600 9px/1.2 var(--sans);letter-spacing:.07em;text-transform:uppercase;
   color:var(--faint);margin-bottom:5px}
-.px-l{font:400 10.5px var(--sans);fill:var(--ink)}
-.px-v{font:400 9.5px var(--sans);fill:var(--muted);text-anchor:end}
+.px-g{display:grid;grid-template-columns:max-content minmax(70px,1fr) max-content;
+  gap:7px 12px;align-items:center;margin:2px 0 6px}
+.px-r{display:contents}
+.px-l{font:400 11px/1.3 var(--sans);color:var(--ink)}
+.px-b{position:relative;height:9px;background:var(--rule-soft,#eee9e0)}
+.px-b i{position:absolute;left:0;top:0;height:9px;opacity:.8}
+.px-b i.fav{background:var(--fav)} .px-b i.adv{background:var(--adv)}
+.px-b i.warn{background:var(--warn,#8a6d1f)} .px-b i.neu{background:var(--neu)}
+.px-v{font:400 10px/1.3 var(--sans);color:var(--muted);white-space:nowrap}
 /* --- heatmap --- */
 .hm-w{overflow-x:auto}
 table.hm{border-collapse:collapse;font-size:11px}
@@ -2848,6 +2868,7 @@ def _dur_corta(detalle: str) -> str:
 
 def _posicion_guide_html(snap: dict) -> str:
     """3) Positioning Guide (SPEC 4.2). Contenido dinámico, nada hardcodeado."""
+    from snapshot import decision as _d
     g = _guia(snap)
     temas = g.get("temas") or []
     if not temas:
@@ -2860,21 +2881,24 @@ def _posicion_guide_html(snap: dict) -> str:
         cn = _CONV_N.get(t.get("conviccion"))
         conv = (f'<span class="cv c{cn}">{t["conviccion"]}</span>' if cn
                 else '<span class="ineu">—</span>')
-        # SPEC-2P 6: la columna dice el timing que APLICA a este tema. Casi
-        # siempre es el global; cuando el tema tiene evidencia tactica propia
-        # que dice otra cosa, se marca como propio para que se vea que no es
-        # una repeticion de la cabecera.
-        tt = config.TIMING_CABEZA.get(t.get("timing"), t.get("timing") or "—")
-        mat = config.TIMING_MATIZ.get(t.get("timing"), "")
+        # La columna dice la señal tactica que APLICA a este tema. Casi siempre
+        # es la del tablero; cuando el tema tiene evidencia tactica propia que
+        # dice otra cosa, se escribe el contraste entero.
+        #
+        # SEMANTIC-PASS 40: con el vocabulario de `senal_txt`, el mismo que la
+        # capa PM. Esta tabla se quedo diciendo «Acompaña con reservas» y «el
+        # global:» cuando la matriz de arriba ya decia «mayormente a favor»:
+        # es el mismo campo, y dos nombres en el mismo documento se leen como
+        # dos cosas distintas.
+        tt, reserva = _d.senal_txt(t.get("timing"), t.get("senal_detalle"))
+        tim = (f'<span class="{_TIMING_CLS.get(t.get("timing"), "t-neu")}">'
+               f'{esc(tt)}</span>')
+        if reserva:
+            tim += f'<span class="tdif">Reserva: {es_num(esc(reserva))}</span>'
         if t.get("timing_override"):
-            gl = config.TIMING_CABEZA.get(t.get("timing_global"), "—").lower()
-            tim = (f'<span class="{_TIMING_CLS.get(t["timing"], "t-neu")}" '
-                   f'title="{esc(mat)}">{esc(tt)}</span>'
-                   f'<span class="tdif" title="{esc(t.get("timing_nota") or "")}">'
-                   f'el global: {esc(gl)}</span>')
-        else:
-            tim = (f'<span class="tglob" title="el timing global: {esc(mat)}">'
-                   f'{esc(tt)}</span>')
+            gl = _d.senal_txt(t.get("timing_global"), g.get("senal_detalle"))[0]
+            tim += (f'<span class="tdif" title="{esc(t.get("timing_nota") or "")}">'
+                    f'en el conjunto del tablero: {esc(gl)}</span>')
         nota = r.get("nota") or ""
         # SPEC 3.1: si no hay evidencia del propio pilar, la fila lo dice. Que la
         # sostenga solo la familia común es una propiedad de la inclinación, no
@@ -2891,8 +2915,8 @@ def _posicion_guide_html(snap: dict) -> str:
             f'<tr><td class="gc">{esc(t["label"])}</td>'
             f'<td class="gbar" data-l="Postura">{rail}'
             f'<span class="etq2">{esc(t.get("sesgo") or t["postura"])}</span></td>'
-            f'<td class="gdt" data-l="Convicción">{conv}</td>'
-            f'<td class="gtim" data-l="Timing">{tim}</td>'
+            f'<td class="gdt" data-l="{esc(config.CONVICCION_PM)}">{conv}</td>'
+            f'<td class="gtim" data-l="{esc(config.SENAL_ETIQUETA)}">{tim}</td>'
             f'<td class="fav" data-l="Expresión preferida">{_expr_html(t.get("favorecer"))}'
             + (f'<span class="gnota">{es_num(esc(nota))}</span>' if nota else "")
             + (f'<span class="riesgo">Evitar: '
@@ -2910,9 +2934,14 @@ def _posicion_guide_html(snap: dict) -> str:
             f'<thead><tr><th>Tema</th>'
             f'<th class="thpos">Postura <span class="thk">adverso ◄&nbsp;&nbsp;► favorable '
             f'· ● hoy · ○ mes ant.</span></th>'
-            f'<th>Convicción</th><th>Timing</th>'
+            f'<th>{esc(config.CONVICCION_PM)}</th>'
+            f'<th>{esc(config.SENAL_ETIQUETA)}</th>'
             f'<th>Expresión preferida</th></tr></thead>'
-            f'<tbody>{"".join(tr)}</tbody></table></div>{nota_fam}')
+            f'<tbody>{"".join(tr)}</tbody></table></div>'
+            f'<p class="note">La señal táctica de una fila es la del tablero '
+            f'salvo que la fila diga otra cosa: cuando el tema tiene evidencia '
+            f'táctica propia que apunta distinto, debajo se escribe qué dice el '
+            f'conjunto. Una fila sin esa línea sigue a la general.</p>{nota_fam}')
 
 
 def _expr_html(e, con_fuente: bool = True) -> str:
@@ -3919,6 +3948,14 @@ def _proximidad_svg(snap: dict) -> str:
     diferencial con dolares de liquidez no significaria nada. Los que no la
     tienen --el cruce de banda del eje-- se quedan fuera del grafico y siguen en
     la tabla.
+
+    Rejilla y no SVG, por lo mismo que el grafico de fuerzas: la cifra iba
+    anclada al borde derecho de un viewBox fijo y la barra crecia hacia ella,
+    asi que la fila mas cercana --la barra mas larga, justo la que mas importa--
+    se imprimia por debajo de su propio numero. Ademas el SVG declaraba
+    `width:100%` y `height` en pixeles, y con `meet` el dibujo se quedaba a
+    tamaño fijo centrado en una caja de 900: de ahi los dos margenes vacios de
+    300 px a los lados.
     """
     g = _guia(snap)
     trg = [t for b in ("invalida", "debilita", "confirma", "tactico")
@@ -3928,30 +3965,21 @@ def _proximidad_svg(snap: dict) -> str:
         return ""
     trg = sorted(trg, key=lambda t: t["sigmas"])[:6]
     tope = config.TRIGGER_SIGMA_MAX
-    FILA, TOP, W = 20, 12, 300
-    H = TOP + FILA * len(trg) + 4
-    body, resumen = "", []
-    for i, t in enumerate(trg):
-        y = TOP + i * FILA
+    filas, resumen = "", []
+    for t in trg:
         frac = max(0.03, min(1.0, 1.0 - t["sigmas"] / tope))
         cerca = ("Cerca" if t["sigmas"] <= 1.5 else
                  "Moderado" if t["sigmas"] <= 3.0 else "Lejano")
-        col = {"invalida": "var(--adv)", "debilita": "var(--warn)",
-               "confirma": "var(--fav)"}.get(t.get("bloque"), "var(--neu)")
-        body += (f'<rect x="120" y="{y - 6:.0f}" width="{130 * frac:.1f}" height="9" '
-                 f'fill="{col}" opacity=".8"/>'
-                 f'<text x="0" y="{y + 1:.0f}" class="px-l">{esc(t["variable"])}</text>'
-                 f'<text x="{W - 2}" y="{y + 1:.0f}" class="px-v">'
-                 f'{t["sigmas"]:.1f}σ · {cerca}</text>')
+        cls = {"invalida": "adv", "debilita": "warn",
+               "confirma": "fav"}.get(t.get("bloque"), "neu")
+        filas += (f'<div class="px-r">'
+                  f'<span class="px-l">{esc(t["variable"])}</span>'
+                  f'<span class="px-b"><i class="{cls}" '
+                  f'style="width:{frac * 100:.1f}%"></i></span>'
+                  f'<span class="px-v">{t["sigmas"]:.1f}σ · {cerca}</span></div>')
         resumen.append(f'{t["variable"]} a {t["sigmas"]:.1f} sigmas ({cerca})')
     return (f'<figure class="px"><figcaption class="px-h">Proximidad de los '
-            f'disparadores</figcaption>'
-            f'<svg viewBox="0 0 {W} {H}" width="100%" height="{H}" role="img" '
-            f'aria-label="Proximidad de los disparadores. {esc("; ".join(resumen))}.">'
-            f'<title>Proximidad de los disparadores</title>'
-            f'<desc>Distancia de cada umbral en desviaciones típicas del propio '
-            f'indicador: barra más larga, más cerca de cumplirse. '
-            f'{esc("; ".join(resumen))}.</desc>{body}</svg>'
+            f'disparadores</figcaption><div class="px-g">{filas}</div>'
             f'<p class="note">Barra más larga, más cerca. La distancia va en '
             f'desviaciones típicas del propio indicador, que es lo único '
             f'comparable entre variables con unidades distintas.</p></figure>')
@@ -4082,7 +4110,7 @@ def _tape_svg(p: dict, t: dict) -> str:
     pts = p["puntos"]
     if len(pts) < 2:
         return ""
-    W, H, BANDA, EJE = 300.0, 58.0, 9.0, 11.0
+    W, H, BANDA = 300.0, 58.0, 9.0
     vals = [v for _f, v in pts]
     lo, hi = min(vals), max(vals)
     if hi - lo < 1e-9:
@@ -4127,17 +4155,16 @@ def _tape_svg(p: dict, t: dict) -> str:
         seg = (f'<text x="0" y="{H + 11:.0f}" class="tp-nd-t">'
                f'Visión histórica del modelo no disponible</text>')
 
-    ejey = H + BANDA + EJE
-    eje = (f'<text x="0" y="{ejey:.0f}" class="tp-ax">'
-           f'{esc(fecha_corta(t["desde"]))}</text>'
-           f'<text x="{W:.0f}" y="{ejey:.0f}" text-anchor="end" class="tp-ax">'
-           f'{esc(fecha_corta(t["hasta"]))}</text>')
-
-    return (f'<svg viewBox="-2 -2 {W + 4:.0f} {ejey + 4:.0f}" width="100%" '
-            f'height="{ejey + 4:.0f}" role="img" '
+    # El eje de fechas se dibuja FUERA, en HTML. Aqui el SVG acaba justo
+    # debajo de la banda.
+    alto = H + BANDA + 3
+    return (f'<svg viewBox="-2 -2 {W + 4:.0f} {alto + 4:.0f}" width="100%" '
+            f'height="{alto + 4:.0f}" role="img" '
             f'aria-label="{esc(p["titulo"])}: {p["r12m"]:+.1f} % en doce meses, '
             f'{p["r3m"]:+.1f} % en tres.">'
-            f'{rej}{cien}<path d="{d}" class="tp-l"/>{seg}{eje}</svg>')
+            f'{rej}{cien}<path d="{d}" class="tp-l"/>{seg}</svg>'
+            f'<p class="tp-ax"><span>{esc(fecha_corta(t["desde"]))}</span>'
+            f'<span>{esc(fecha_corta(t["hasta"]))}</span></p>')
 
 
 def _timeline_html(snap: dict) -> str:

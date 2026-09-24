@@ -193,10 +193,12 @@ def test_el_timing_es_una_columna_que_no_se_repite_a_si_misma():
     html = io.open("output/snapshot-2008-09-15.html", encoding="utf-8").read()
     i = html.find('class="pguide"')
     cab = html[i:i + 900]
-    assert "<th>Timing</th>" in cab, "SPEC-2P 6 pide la columna de timing"
-    assert "<th>Convicción</th>" in cab
-    # y la nota tiene que explicar que el que manda es el global
-    assert "el timing global" in html or "timing global" in html
+    # Por el nombre canonico, no por la cadena: renombrar la columna no puede
+    # romper un test que habla de si la columna se repite a si misma.
+    assert f"<th>{config.SENAL_ETIQUETA}</th>" in cab, "falta la columna de señal"
+    assert f"<th>{config.CONVICCION_PM}</th>" in cab
+    # y la nota tiene que explicar que, sin marca, la fila sigue a la general
+    assert "salvo que la fila diga otra cosa" in html
 
 
 def test_el_timing_global_esta_en_la_cabecera():

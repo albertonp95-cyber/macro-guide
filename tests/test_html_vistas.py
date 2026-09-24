@@ -277,10 +277,13 @@ def test_E_el_estado_publicado_coincide_con_el_decisionstate():
             val = v.get(campo)
             if val and consistencia._norm(val) not in H:
                 faltan.append(f"{campo}={val}")
-        # el timing, en cualquiera de sus formas legitimas
+        # La señal tactica, en cualquiera de sus formas legitimas. La primera
+        # es la que los documentos publican hoy; las otras son el vocabulario
+        # anterior, que se acepta pero ya no aparece.
         _t = v.get("timing")
-        formas = [config.TIMING_CABEZA.get(_t), config.timing_frase(_t),
-                  config.TIMING_ES.get(_t), config.TIMING_CORTO.get(_t)]
+        formas = [config.SENAL_ESTADO.get(_t), config.TIMING_CABEZA.get(_t),
+                  config.timing_frase(_t), config.TIMING_ES.get(_t),
+                  config.TIMING_CORTO.get(_t)]
         if _t and not any(x and consistencia._norm(x) in H for x in formas):
             faltan.append(f"timing={_t}")
         # y cada dimensión con su sesgo

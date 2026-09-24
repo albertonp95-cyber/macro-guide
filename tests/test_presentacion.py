@@ -199,7 +199,10 @@ def test_el_horizonte_no_ocupa_una_columna_repetida():
     i = h.find('class="pguide"')
     cab = h[i:i + 1200]
     assert "<th>Horizonte</th>" not in cab, "el horizonte vuelve como columna"
-    assert "<th>Timing</th>" in cab
+    # La columna de señal se comprueba por su nombre canonico: comprobar la
+    # cadena "Timing" hacia que renombrarla rompiera un test sobre el horizonte,
+    # que no habla de eso.
+    assert f"<th>{config.SENAL_ETIQUETA}</th>" in cab, "falta la columna de señal"
 
 
 # ===================== PAGINACION Y ENCAJE =================================
