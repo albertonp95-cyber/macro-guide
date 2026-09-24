@@ -1900,10 +1900,11 @@ def _postura_html(postura: list[dict]) -> str:
                    f'<td style="color:var(--faint)">{esc(drv)}</td></tr>')
     return f"""
     <div style="overflow-x:auto"><table class="deriv">
-      <thead><tr><th>Clase</th><th>Inclinación</th><th>Convicción</th>
+      <thead><tr><th>Clase</th><th>Inclinación</th>
+        <th>{config.CONVICCION_PM}</th>
         <th title="Indicadores que sostienen esa inclinación / que la contradicen">Indicadores</th>
         <th title="Los mismos votos contados por grupo de correlación: un grupo, una voz">Voces indep.</th>
-        <th>Qué limita la convicción</th></tr></thead>
+        <th>Qué limita la {config.CONVICCION_PM.lower()}</th></tr></thead>
       <tbody>{"".join(filas)}</tbody></table></div>
     <p class="note">«Indicadores» es el recuento crudo; «voces indep.», los mismos
        votos agrupados por correlación. La convicción se decide sobre los segundos, que

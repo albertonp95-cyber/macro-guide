@@ -1683,6 +1683,10 @@ def _distribucion_conviccion(ctx: Context, asof: pd.Timestamp, grupos: dict) -> 
 # atempera, no los pone a pelear.
 TECNICO_PILARES = ["credito", "volatilidad", "tendencia"]
 MACRO_PILARES = ["crecimiento", "liquidez", "inflacion", "posicionamiento"]
+# El nombre del campo EN PROSA, el mismo que llevan sus etiquetas. Research
+# conserva el termino tecnico; la prosa de la capa PM no puede llamarlo de
+# otra manera que la columna que el lector acaba de leer.
+_CONF = config.CONVICCION_PM.lower()
 RISK_ON = {"rv": +1, "cred": +1, "cicl": +1, "mp": +1}  # que direccion es "tomar riesgo"
 
 
@@ -2019,7 +2023,7 @@ def _conclusiones(snap: dict, comps: dict, V: "Verificador") -> list[str]:
 
     # 4 · conclusión, con la convicción coherente con el peso de la evidencia.
     tl = _tilt(snap["postura"], comps.get("relacion"))
-    out.append(f"Mantenemos inclinación {tl['palabra']} con convicción {tl['conviccion']}; "
+    out.append(f"Mantenemos inclinación {tl['palabra']} con {_CONF} {tl['conviccion']}; "
                f"la lectura depende de {_condicional(snap, comps, ten, V)}.")
 
     # 5 · coherencia: si renta variable o duración -- las dos clases que definen
@@ -2035,7 +2039,7 @@ def _conclusiones(snap: dict, comps: dict, V: "Verificador") -> list[str]:
         partes = []
         if neut:
             partes.append(f"en {_junta([config.CLASS_CORTO[p['key']] for p in neut])} las "
-                          f"señales no alcanzan el umbral de convicción y quedamos neutrales")
+                          f"señales no alcanzan el umbral de {_CONF} y quedamos neutrales")
         if opp:
             partes.append(f"en {_junta([config.CLASS_CORTO[p['key']] for p in opp])} la señal "
                           f"apunta al contrario")
@@ -2083,15 +2087,15 @@ def _evidencia(snap: dict, comps: dict, V: "Verificador") -> list[str]:
             pesa = config.concepto_verbo(drag_pil, "pesa", "pesan")
             cuerpo = (f"{fav} empujan al lado favorable, pero {drag} {pesa} en contra y deja "
                       f"el compuesto en {niv:.0f} sobre 100: modera la lectura técnica en "
-                      f"vez de confirmarla, y es la razón para no subir la convicción")
+                      f"vez de confirmarla, y es la razón para no subir la {_CONF}")
         else:  # mismo lado que el técnico, pero más flojo
             cuerpo = (f"con {lead_m}, el compuesto —en {niv:.0f} sobre 100, del lado del "
                       f"técnico pero más flojo— modera la lectura en vez de reforzarla, y "
-                      f"es la razón para no subir la convicción")
+                      f"es la razón para no subir la {_CONF}")
     elif rel == "contradice":
         cuerpo = (f"con {lead_m}, el compuesto —en {niv:.0f} sobre 100— apunta al lado "
                   f"contrario que el técnico: abre la principal divergencia y obliga a "
-                  f"bajar la convicción")
+                  f"bajar la {_CONF}")
     else:
         cuerpo = (f"con {lead_m}, el compuesto —en {niv:.0f} sobre 100— no manda en "
                   f"ninguna dirección")
@@ -2126,7 +2130,7 @@ def _evidencia(snap: dict, comps: dict, V: "Verificador") -> list[str]:
     tl = _tilt(snap["postura"], rel)
     P.append(
         f"El peso de la evidencia, por tanto, sostiene una inclinación {tl['palabra']} "
-        f"con convicción {tl['conviccion']}: el compuesto técnico manda, el macro lo "
+        f"con {_CONF} {tl['conviccion']}: el compuesto técnico manda, el macro lo "
         f"{rel}, y la lectura se apoya en {_condicional(snap, comps, ten, V)}.")
     return P
 
