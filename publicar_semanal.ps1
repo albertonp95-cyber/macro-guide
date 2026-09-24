@@ -1,8 +1,8 @@
 # Publicacion semanal, desatendida.
 #
-#   1. genera el snapshot del ultimo dia con datos
-#   2. regenera SOLO esa pagina publica (redactada y verificada)
-#   3. rehace el indice con todo lo que hay en site/
+#   1. genera el snapshot del ultimo dia con datos -- y, en la misma pasada,
+#      su copia publica, redactada y verificada
+#   2. rehace el indice con todo lo que hay en site/
 #   4. si algo cambio, commit y push; Pages despliega solo
 #
 # NO TOCA LA TERMINAL BLOOMBERG. El snapshot lee la cache de disco y nunca
@@ -67,9 +67,11 @@ $ultimo = (Get-ChildItem (Join-Path $raiz "output") -Filter "snapshot-????-??-??
 if (-not $ultimo) { Reg "FALLO: no hay snapshot en output/."; exit 1 }
 Reg "   fecha publicada: $ultimo"
 
-# 3. La copia publica. Si la verificacion encuentra una fuga, sale != 0 y el
-#    script para aqui: no llega a escribir ni a empujar.
-Corre "copia publica" "python" @("publicar_sitio.py", "--fecha", $ultimo) | Out-Null
+# 3. El indice. La pagina publica ya la escribio run_snapshot.py en el paso
+#    anterior, del mismo documento y el mismo snapshot que la interna, y si la
+#    verificacion hubiera encontrado una fuga ese paso habria salido != 0 y el
+#    script estaria parado.
+Corre "indice del sitio" "python" @("publicar_sitio.py") | Out-Null
 
 # 4. Solo si hay cambios reales en site/.
 $cambios = & git status --porcelain -- site

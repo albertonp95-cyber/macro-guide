@@ -169,6 +169,56 @@ def _html_esc(t: str) -> str:
     return html.escape(t, quote=True)
 
 
+def test_la_copia_publica_no_pierde_frases_por_el_camino():
+    """Todo lo que dice la copia interna y no menciona una serie retenida,
+    tiene que decirlo también la pública.
+
+    El caso que lo motiva: la página publicada decía «Sin snapshot anterior con
+    el que comparar» mientras la interna traía su registro de cambios entero.
+    No era la redacción: era que el publicador construía el snapshot por su
+    cuenta, sin cargar el estado previo, así que publicaba una lectura hecha
+    con otras reglas. Ningún test lo veía porque todos comparaban campos
+    concretos, y lo que faltaba era una sección entera.
+
+    Se comparan BLOQUES de prosa --parrafos, puntos de lista, titulos-- y no
+    frases sueltas: dentro de una tabla el texto no tiene puntos y cualquier
+    troceado por puntuacion junta media seccion en una sola cadena.
+    """
+    for f in FECHAS:
+        _snap, doc, pub = _par(f)
+        nombres = [n for ind in publicar.retenidas()
+                   for n in publicar._nombres(ind["key"], ind["label"])]
+        bi, bp = _bloques(doc), set(_bloques(pub))
+        # un bloque EDITADO en el sitio --el renglón de cobertura, que gana el
+        # «(n con el valor retenido)»-- no es un bloque perdido
+        prefijos = {b[:40] for b in bp}
+        perdidas = [b for b in bi
+                    if len(b) > 60 and b not in bp and b[:40] not in prefijos
+                    and not any(n in b for n in nombres)]
+        assert not perdidas, (
+            f"{f}: la copia pública pierde {len(perdidas)} bloque(s) que no "
+            f"hablan de una serie retenida. El primero: «{perdidas[0][:130]}»")
+
+
+_BLOQUE = re.compile(r"<(p|li|summary|h2|h3|h4)\b[^>]*>(.*?)</\1>", re.S | re.I)
+
+
+def _bloques(doc: str) -> list[str]:
+    """Los bloques de prosa del documento, como texto plano.
+
+    Fuera el CSS y el script: la redacción añade sus propias reglas de estilo y
+    compararlas mediría el andamiaje, no lo que el documento dice.
+    """
+    d = re.sub(r"<style[^>]*>.*?</style>|<script[^>]*>.*?</script>",
+               " ", doc, flags=re.S | re.I)
+    out = []
+    for m in _BLOQUE.finditer(d):
+        t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", m.group(2))).strip()
+        if t:
+            out.append(t)
+    return out
+
+
 def test_lo_unico_que_cambia_es_lo_retenido():
     """La diferencia entre las dos copias tiene que estar ACOTADA: el aviso, y
     los entornos de las series retenidas. Si la redacción tocara otra cosa, la

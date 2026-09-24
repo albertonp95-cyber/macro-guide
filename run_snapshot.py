@@ -16,10 +16,12 @@ import os
 import sys
 
 import config
-from snapshot import brief, build, consistencia, data, historico, indicators, pdf, render
+from snapshot import (brief, build, consistencia, data, historico,
+                      indicators, pdf, publicar, render)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(ROOT, "output")
+SITE = os.path.join(ROOT, "site")
 os.makedirs(OUT, exist_ok=True)
 
 
@@ -33,6 +35,17 @@ def _cargar(force: bool):
     # `macro` va tambien: de ahi salen las variables de entorno que no son
     # indicadores del tablero (tasa de referencia, balance de la Fed).
     return build.Context(panel, prices=px, macro=macro)
+
+
+def _publicar(snap, html_doc: str, base: str) -> None:
+    """Redacta, VERIFICA y escribe en site/. En ese orden, y si la verificacion
+    falla no se escribe nada y se propaga: publicar una pagina con datos de
+    terminal no es un aviso, es un fallo."""
+    pub, _inf = publicar.redactar(html_doc, snap)
+    publicar.verificar(pub, snap)
+    os.makedirs(SITE, exist_ok=True)
+    with open(os.path.join(SITE, base + ".html"), "w", encoding="utf-8") as f:
+        f.write(pub)
 
 
 def _escribir(ctx, fecha, etiqueta: str | None = None,
@@ -60,6 +73,13 @@ def _escribir(ctx, fecha, etiqueta: str | None = None,
     html_doc = render.render_html(snap)
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html_doc)
+    # ---- La COPIA PUBLICA sale de este mismo documento y este mismo snapshot,
+    # en la misma pasada. Antes la generaba `publicar_sitio.py` construyendo el
+    # snapshot por su cuenta, y sin el estado previo: la pagina publicada decia
+    # "Sin snapshot anterior con el que comparar" mientras la interna traia su
+    # registro de cambios entero. Dos documentos con la misma fecha diciendo
+    # cosas distintas, que es justo lo que el proyecto lleva pasadas evitando.
+    _publicar(snap, html_doc, base)
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(render.render_md(snap))
     # ---- OUTPUT 2: PM Brief (SPEC 11). Misma ejecucion, mismo DecisionState.
