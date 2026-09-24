@@ -960,6 +960,12 @@ details.narr{margin-top:12px}
 .mxr[open] .mx-n::after{transform:rotate(90deg)}
 .mx-i,.mx-d{color:var(--faint);font-size:10.5px}
 .mx-i{text-align:right}
+/* Las flechas marcan que estas dos son las PUNTAS DEL EJE y no el sesgo: sin
+   ellas, la fila de renta variable ponia «Favorable» como punta derecha y
+   «Favorable» como lectura, en lineas contiguas, y se leian como dos campos
+   distintos que casualmente coinciden. Van en CSS y no en el texto para que
+   el comprobador HTML/PDF siga buscando la etiqueta, no la decoracion. */
+.mx-i::after{content:" ◄"} .mx-d::before{content:"► "}
 .mx-i.on,.mx-d.on{color:var(--ink);font-weight:600}
 .mx-b{position:relative;height:18px;min-width:110px}
 .mx-ax{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--rule)}
@@ -1215,7 +1221,11 @@ table.hm{border-collapse:collapse;font-size:11px}
 }
 @media (max-width:640px){
   .ck-post{font-size:28px}
-  .mx-i,.mx-d{display:none}
+  /* Las dos puntas NO se ocultan. Estuvieron ocultas y el resultado era un
+     punto sobre una raya: la posicion del punto solo significa algo si se lee
+     contra que. Se encogen y se dejan envolver, que ocupa dos lineas y dice
+     lo que la fila decide. */
+  .mx-i,.mx-d{font-size:9.5px;line-height:1.25}
   .hm td{width:20px;height:17px}
 }
 
