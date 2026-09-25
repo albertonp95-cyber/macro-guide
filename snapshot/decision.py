@@ -1407,15 +1407,7 @@ def bottom_line(snap: dict) -> str:
     orden = {"alta": 3, "media": 2, "baja": 1}
     fuertes = sorted([t for t in temas if t["dir_tipo"] != "neutral"],
                      key=lambda t: (-orden.get(t["conviccion"], 0), -abs(t["paso"])))
-    frases = []
-    for t in fuertes[:3]:
-        corto = config.CLASS_CORTO.get(t["key"], t["label"].lower())
-        sg = sesgo(t["key"], t["dir_tipo"]).lower()
-        # "el dolar" + "dolar debil" salia "el dolar dolar debil": cuando la
-        # etiqueta del sesgo YA nombra la clase, la frase es solo la etiqueta.
-        # Lo detecto el QA de erratas en 2021-11-01 y 2022-06-15.
-        nucleo = corto.split()[-1]
-        frases.append(sg if nucleo in sg.split() else f"{corto} {sg}")
+    frases = [expresion_corta(t["key"], t["dir_tipo"]) for t in fuertes[:3]]
     expr = _lista_es(frases) if frases else "sin expresión con convicción"
 
     # SPEC-7P 11: la cabecera ya dice postura, conviccion y timing, en grande y
@@ -1434,6 +1426,46 @@ def bottom_line(snap: dict) -> str:
     else:
         lim = "sin contradicción persistente que la limite"
     return f"Se expresa por {expr}; {lim}."
+
+
+def implicacion_cartera(key: str, pct) -> str:
+    """Hacia que lado de cada dimension empuja un indicador, hoy.
+
+    Es una lectura del mapa de votos, no una presentacion, asi que vive en la
+    capa y no en el template: si el template la compusiera, habria logica de
+    inversion en un sitio donde SPEC 2 no la admite.
+
+    El mapa dice hacia donde empuja cada clase cuando el indicador esta ALTO,
+    asi que hace falta el percentil CRUDO y no el orientado: el orientado ya
+    lleva dentro el signo del indicador y aplicarlo otra vez lo cancela.
+    """
+    import numpy as _np
+
+    m = config.INDICATOR_ASSET_MAP.get(key) or {}
+    if pct is None or not _np.isfinite(pct):
+        return ""
+    lado = 1 if pct >= 50 else -1
+    xs = [expresion_corta(ck, "mas" if v * lado > 0 else "menos")
+          for ck, v in m.items() if v]
+    return " · ".join(xs[:4])
+
+
+def expresion_corta(key: str, dir_tipo: str) -> str:
+    """La inclinacion de un tema dicha en tres palabras: «duracion corta».
+
+    Vive aqui, en la capa comun, porque la escriben la conclusion del HTML y la
+    seccion de evidencia del semanal, y con la regla duplicada ya se separaron
+    una vez las etiquetas de un mismo campo.
+
+    La regla del nucleo existe por una errata real: "el dolar" + "dolar debil"
+    salia "el dolar dolar debil". Cuando la etiqueta del sesgo YA nombra la
+    clase, la frase es solo la etiqueta. Lo detecto el QA de erratas de la
+    prosa en 2021-11-01 y 2022-06-15.
+    """
+    corto = config.CLASS_CORTO.get(key, key)
+    sg = sesgo(key, dir_tipo).lower()
+    nucleo = corto.split()[-1]
+    return sg if nucleo in sg.split() else f"{corto} {sg}"
 
 
 def _lista_es(xs: list[str]) -> str:

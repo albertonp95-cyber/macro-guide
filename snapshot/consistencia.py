@@ -48,13 +48,17 @@ def _norm(v) -> str:
 # El cruce de banda del eje enuncia su efecto nombrando el régimen nuevo --«el
 # régimen pasa a X»--, que es mas informativo que el verbo generico y vale para
 # cualquier bloque: el bloque lo sigue llevando el estado.
-_REGIMEN = "el régimen pasa a"
+# Un cambio de regimen es el efecto, se escriba como se escriba. El estado
+# produce «el régimen pasa DE «neutral» A «euforia»», y la constante solo
+# contemplaba «pasa a»: con el «de» en medio no casaba, y un disparador que
+# el documento enunciaba correctamente salia como divergencia.
+_REGIMEN = ("el régimen pasa a", "el régimen pasa de")
 _VERBO = {"confirma": ("reforzar la lectura", "refuerza la lectura", "refuerza",
-                       "gana apoyo", "gana un apoyo", _REGIMEN),
+                       "gana apoyo", "gana un apoyo", *_REGIMEN),
           "debilita": ("debilitar la lectura", "debilita la lectura", "debilita",
-                       "pierde apoyo", "pierde un apoyo", _REGIMEN),
+                       "pierde apoyo", "pierde un apoyo", *_REGIMEN),
           "invalida": ("invalidar la lectura", "invalida la lectura", "invalida",
-                       "se queda sin dirección", "pasa a ", _REGIMEN)}
+                       "se queda sin dirección", "pasa a ", *_REGIMEN)}
 
 # El brief, cuando el contrafactual midio un salto de conviccion concreto, lo
 # escribe en vez del verbo generico: «convicción media -> baja» dice mas que
@@ -66,6 +70,15 @@ _VERBO = {"confirma": ("reforzar la lectura", "refuerza la lectura", "refuerza",
 _SALTO = re.compile(r"(?:convicción|confianza) (alta|media|baja|neutral) → "
                     r"(alta|media|baja|neutral)")
 _SENTIDO = {"confirma": 1, "debilita": -1, "invalida": -1}
+
+
+def _apariciones(texto: str, aguja: str):
+    """Todos los indices donde aparece `aguja`. Con tope, porque un umbral muy
+    corto --«p90»-- puede salir muchas veces y no hace falta mirarlas todas."""
+    i, n = texto.find(aguja), 0
+    while i >= 0 and n < 40:
+        yield i
+        i, n = texto.find(aguja, i + 1), n + 1
 
 
 def _dice_lo_mismo(bloque: str, ventana: str) -> bool:
@@ -155,10 +168,21 @@ def valores_indicadores(snap: dict, html_doc: str, brief_doc: str) -> list[dict]
     from snapshot import semantica
     filas = []
     docs = [(n, d) for n, d in (("HTML", semantica.solo_lectura(html_doc)),
-                                ("brief", texto(brief_doc) if brief_doc else None))
+                                ("brief", _sin_research(brief_doc)))
             if d]
     if not docs:
         return filas
+    # Los valores que el propio tablero publica para OTROS indicadores. Un
+    # numero que es la cifra de otra fila no es un segundo valor de esta: en el
+    # semanal, «prima HY-IG 1.91 pp» cae dentro de la ventana de «Diferencial
+    # de alto rendimiento», cuyo nombre contiene el de aquella.
+    ajenos = {}
+    for _p in (snap.get("tablero") or []):
+        for _f in _p.get("filas", []):
+            _m = re.search(r"[+-]?\d+(?:[.,]\d+)?", _norm(str(_f.get("valor") or "")))
+            if _m:
+                ajenos.setdefault(_f["key"],
+                                  round(float(_m.group(0).replace(",", ".")), 4))
     for pil in (snap.get("tablero") or []):
         for f in pil.get("filas", []):
             unidad = (config.INDICATOR_BY_KEY.get(f["key"], {}) or {}).get("unit") or ""
@@ -171,13 +195,42 @@ def valores_indicadores(snap: dict, html_doc: str, brief_doc: str) -> list[dict]
             bueno = round(float(m.group(0).replace(",", ".")), 4)
             nombres = {_norm(config.SHORT.get(f["key"], "")), _norm(f["label"])}
             for nom_doc, doc in docs:
+                otros = {x for k2, x in ajenos.items() if k2 != f["key"]}
                 malos = sorted(v for v in _valores_en(doc, nombres, unidad)
-                               if v != bueno)
+                               if v != bueno and v not in otros)
                 if malos:
                     filas.append(dict(
                         indicador=f["label"], doc=nom_doc, publicado=bueno,
                         otros=malos, unidad=unidad))
     return filas
+
+
+def _sin_research(doc: str | None) -> str | None:
+    """El semanal SIN la seccion de research externo.
+
+    Esa seccion cita cifras de terceros --con su propia fecha y su propia
+    fuente-- al lado del nombre del indicador del que hablan. Exigir que
+    coincidan con el tablero seria exigir que la prensa se corrija sola. Es la
+    misma exencion que `semantica.solo_lectura` aplica al HTML.
+    """
+    if doc is None:
+        return None
+    i = doc.find('id="s6"')
+    if i >= 0:
+        j = doc.find('id="s7"', i)
+        doc = doc[:i] + (doc[j:] if j >= 0 else "")
+    # Y sin los RETORNOS DE MERCADO. El Tape y la columna de precio ponen a
+    # proposito el movimiento del mercado al lado de la vista del modelo, y
+    # llevan las mismas unidades que muchos indicadores: «DBC 3m +23.8 %» cae
+    # dentro de la ventana de «Precios al productor interanual» y se leia como
+    # un segundo valor suyo. Son cantidades de otra especie, y el documento las
+    # rotula como tales.
+    doc = re.sub(r'<div[^>]*class="tp"[^>]*>.*?<p class="tp-leg"', " <p ",
+                 doc, flags=re.S)
+    doc = re.sub(r'<div[^>]*class="pr"[^>]*>.*?</div>', " ", doc, flags=re.S)
+    doc = re.sub(r'<span[^>]*class="tp-n"[^>]*>.*?</span>', " ", doc,
+                 flags=re.S)
+    return texto(doc)
 
 
 def _cerca(doc: str, ancla: str, valor: str, ventana: int = 320) -> bool:
@@ -320,11 +373,18 @@ def comparar(snap: dict, html_doc: str, brief_doc: str) -> dict:
         val = _valor_umbral(cond)
         en_html = (val in H) if val else True
         en_brief = (val in B) if val else True
-        # y el verbo del brief tiene que ser el de SU bloque, no otro
+        # y el verbo del brief tiene que ser el de SU bloque, no otro.
+        #
+        # Se miran TODAS las apariciones del umbral, no la primera. El mismo
+        # numero puede salir antes en otro sitio --«-3.7 %» es a la vez el
+        # umbral de cobre/oro y el retorno a tres meses del panel de estilo--
+        # y quedarse en la primera reportaba una divergencia donde el documento
+        # decia exactamente lo que debia, unas lineas mas abajo.
         verbo_ok = True
         if bloque in _VERBO and val and val in B:
-            i = B.find(val)
-            verbo_ok = _dice_lo_mismo(bloque, B[max(0, i - 260):i + 260])
+            verbo_ok = any(
+                _dice_lo_mismo(bloque, B[max(0, i - 260):i + 260])
+                for i in _apariciones(B, val))
         filas.append(dict(campo=campo,
                           valor=f"{bloque} · {cond} · "
                                 f"{'—' if sigmas is None else f'{sigmas:.1f}σ'}",

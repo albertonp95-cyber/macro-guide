@@ -16,8 +16,8 @@ import os
 import sys
 
 import config
-from snapshot import (brief, build, consistencia, data, historico,
-                      indicators, pdf, publicar, render)
+from snapshot import (build, consistencia, data, historico,
+                      indicators, pdf, publicar, render, weekly)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(ROOT, "output")
@@ -59,10 +59,12 @@ def _escribir(ctx, fecha, etiqueta: str | None = None,
     html_path = os.path.join(OUT, base + ".html")
     md_path = os.path.join(OUT, base + ".md")
 
-    # El brief primero: su comparacion con el HTML entra en el propio tablero de
-    # auditoria del HTML, asi que este se compone en dos pasadas.
-    brief_html, plog = brief.render_brief(snap)
+    # El semanal primero: su comparacion con el HTML entra en el propio tablero
+    # de auditoria del HTML, asi que este se compone en dos pasadas. El Tape se
+    # le pasa ya renderizado, del MISMO `_tape_html` que dibuja el HTML: dos
+    # funciones distintas para el mismo grafico se separan a la primera.
     html_pasada1 = render.render_html(snap)
+    brief_html, plog = weekly.render_weekly(snap, render._tape_html(snap))
     snap["consistencia"] = consistencia.comparar(snap, html_pasada1, brief_html)
     # Los dos documentos YA RENDERIZADOS entran al QA semantico (SPEC-2P 11):
     # cinco de las ocho comprobaciones miran lo que el documento AFIRMA, y sin
@@ -82,9 +84,9 @@ def _escribir(ctx, fecha, etiqueta: str | None = None,
     _publicar(snap, html_doc, base)
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(render.render_md(snap))
-    # ---- OUTPUT 2: PM Brief (SPEC 11). Misma ejecucion, mismo DecisionState.
-    brief_path = os.path.join(OUT, base + "-brief.html")
-    pdf_path = os.path.join(OUT, base + "-brief.pdf")
+    # ---- OUTPUT 2: la Estrategia semanal. Misma ejecucion, mismo DecisionState.
+    brief_path = os.path.join(OUT, base + "-semanal.html")
+    pdf_path = os.path.join(OUT, base + "-semanal.pdf")
     with open(brief_path, "w", encoding="utf-8") as f:
         f.write(brief_html)
     ok, det = pdf.imprimir(brief_path, pdf_path)
@@ -109,7 +111,7 @@ def _escribir(ctx, fecha, etiqueta: str | None = None,
         print(f"    -> {os.path.relpath(snap['brief_pdf'], ROOT)} "
               f"({snap.get('brief_paginas')} págs · {det})")
     else:
-        print(f"    -> brief en HTML, sin PDF: {det}")
+        print(f"    -> semanal en HTML, sin PDF: {det}")
     c = snap["consistencia"]
     print(f"    {'OK ' if c['ok'] else '!! '}{consistencia.informe(c)}")
     return html_path
