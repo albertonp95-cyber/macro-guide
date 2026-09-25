@@ -40,3 +40,8 @@ docs/research/
 
 # Registros de la publicacion semanal: son de esta maquina, no del repo.
 logs/
+
+# El mock de formato reproduce resumenes de research de Bloomberg y J.P.
+# Morgan: es material de diseno interno, no se publica. El prompt si se queda.
+docs/reference/*.pdf
+docs/Reference/*.pdf

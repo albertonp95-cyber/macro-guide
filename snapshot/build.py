@@ -297,6 +297,48 @@ def _votos(key: str, pct: float) -> dict[str, int]:
     return {}
 
 
+def huella_datos(ctx, asof) -> dict:
+    """La HUELLA de los datos con los que se genero un documento.
+
+    Existe porque ya hubo tres renders del 22/09/2026 con cifras distintas. La
+    explicacion es legitima --Yahoo y FRED revisan series, y una reconstruccion
+    posterior usa los datos corregidos-- pero mirando el documento no habia
+    forma de saber cual era cual, y dos copias de la misma fecha con numeros
+    distintos se leen como una contradiccion.
+
+    La huella resume LO QUE ENTRO, no lo que salio: los valores del panel el
+    dia de la lectura, mas hasta donde llega cada fuente. Si manana el mismo
+    dia se reconstruye con datos revisados, el codigo cambia y las dos copias
+    se distinguen a simple vista.
+
+    No es un identificador criptografico ni pretende serlo: son seis digitos
+    hexadecimales, suficientes para decir "estas dos no son la misma foto".
+    """
+    import hashlib
+
+    # El digest cubre TODA la historia que alimenta la lectura, no solo la fila
+    # del dia: el percentil es de cinco años, asi que una revision de hace tres
+    # meses mueve la lectura sin tocar el valor de hoy. Por serie van su valor
+    # en la fecha, cuantas observaciones hay y su suma: cualquier correccion en
+    # cualquier punto cambia al menos una de las tres.
+    hasta = ctx.panel.loc[:asof]
+    partes = []
+    for k in sorted(hasta.columns):
+        col = hasta[k].dropna()
+        ult = float(col.iloc[-1]) if len(col) else float("nan")
+        partes.append(f"{k}={round(ult, 6)}:{len(col)}:{round(float(col.sum()), 4)}")
+    codigo = hashlib.sha256("|".join(partes).encode("utf-8")).hexdigest()[:6]
+    # Hasta donde llega cada fuente se PUBLICA, pero no entra en el codigo: una
+    # lectura de 2008 no cambia porque hoy haya llegado un dato nuevo.
+    fin_panel = ctx.panel.index[-1]
+    px = getattr(ctx, "prices", None)
+    fin_px = px.index[-1] if px is not None and len(px) else None
+    return dict(codigo=codigo, n_series=int(ctx.panel.shape[1]),
+                panel_hasta=fin_panel,
+                precios_hasta=fin_px,
+                generado=pd.Timestamp.now())
+
+
 def build_snapshot(ctx: Context, asof, previo: dict | None = None) -> dict:
     asof = pd.Timestamp(asof)
     idx = ctx.panel.index
@@ -305,6 +347,9 @@ def build_snapshot(ctx: Context, asof, previo: dict | None = None) -> dict:
     asof = idx[idx <= asof][-1]
 
     snap: dict = {"asof": asof, "generated": pd.Timestamp.now()}
+    # Con que datos se hizo esta lectura, para que dos copias de la misma
+    # fecha generadas antes y despues de una revision se distingan.
+    snap["huella"] = huella_datos(ctx, asof)
 
     # ---------------------------------------------------- 2. ejes
     # Nivel y deltas SUAVIZADOS: el valor actual es la media de los ultimos dias
