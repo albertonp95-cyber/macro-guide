@@ -611,20 +611,25 @@ def render_weekly(snap: dict, tape_svg: str = "") -> tuple[str, list[str]]:
 <title>Estrategia semanal · {esc(fecha_corta(asof))}</title>
 <style>{_CSS}</style></head>
 <body>
-<div class="run-h">
-  <span class="rh-t">Estrategia semanal</span>
-  <span class="rh-f">{esc(fecha_larga(asof)).upper()}</span>
-</div>
-<div class="run-p">{pie}</div>
+<table class="hoja"><thead><tr><td>
+  <div class="run-h">
+    <span class="rh-t">Estrategia semanal</span>
+    <span class="rh-f">{esc(fecha_larga(asof)).upper()}</span>
+  </div>
+</td></tr></thead>
+<tfoot><tr><td><div class="run-p">{pie}</div></td></tr></tfoot>
+<tbody><tr><td>
 <article>
   <header class="port">
-    <div class="port-e">Estrategia semanal</div>
+    <!-- Sin rotulo aqui: el corrido de la cabecera ya lo dice, y en la
+         primera pagina salian los dos, uno debajo del otro. -->
     <h1>{esc(fecha_larga(asof))}</h1>
     <p class="port-s">Lectura del estado macro y de mercado. No es un modelo:
        no optimiza, no asigna porcentajes y no genera órdenes.</p>
   </header>
   {cuerpo}
 </article>
+</td></tr></tbody></table>
 </body></html>""", log
 
 
@@ -638,16 +643,23 @@ _CSS = """
 body{margin:0;color:var(--ink);background:var(--bg);
   font:400 10pt/1.5 var(--sans);-webkit-print-color-adjust:exact;
   print-color-adjust:exact}
-/* Cabecera y pie fijos: en impresion, `position:fixed` se repite en cada
-   pagina. Es la unica forma de tener rotulo corrido sin las cajas de margen
-   de @page, que Chrome headless no rellena. */
-.run-h{position:fixed;top:-11mm;left:0;right:0;display:flex;
-  justify-content:space-between;font:600 7pt var(--sans);letter-spacing:.09em;
-  text-transform:uppercase;color:var(--faint);
-  border-bottom:.5pt solid var(--rule);padding-bottom:2mm}
-.run-p{position:fixed;bottom:-11mm;left:0;right:0;font:400 6.5pt var(--sans);
-  color:var(--faint);border-top:.5pt solid var(--rule);padding-top:2mm}
-.port{margin-bottom:9mm}
+/* Rotulo corrido por THEAD/TFOOT, no por `position:fixed`.
+   Con `fixed` y un desplazamiento negativo el navegador resuelve la posicion
+   UNA vez, contra la primera pagina, y luego repite el dibujo: el rotulo
+   acababa impreso al PIE de cada pagina, encima de la ultima linea del texto.
+   El `thead` de una tabla se repite en cada pagina impresa Y reserva su
+   espacio, que es justo lo que hace falta para que no se empalme con nada. */
+.hoja{width:100%;border-collapse:collapse}
+.hoja > thead > tr > td, .hoja > tfoot > tr > td, .hoja > tbody > tr > td{
+  padding:0;border:0}
+thead{display:table-header-group}
+tfoot{display:table-footer-group}
+.run-h{display:flex;justify-content:space-between;font:600 7pt var(--sans);
+  letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
+  border-bottom:.5pt solid var(--rule);padding-bottom:1.5mm;margin-bottom:5mm}
+.run-p{font:400 6.5pt var(--sans);color:var(--faint);
+  border-top:.5pt solid var(--rule);padding-top:1.5mm;margin-top:5mm}
+.port{margin-bottom:8mm}
 .port-e{font:600 7.5pt var(--sans);letter-spacing:.14em;text-transform:uppercase;
   color:var(--faint)}
 h1{font:400 26pt/1.1 var(--serif);margin:2mm 0 2mm;letter-spacing:-.01em}

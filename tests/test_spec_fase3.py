@@ -202,6 +202,39 @@ def test_el_pie_lleva_la_huella_de_los_datos():
         assert "Lectura, no recomendación" in doc, f"{f}: falta el aviso del pie"
 
 
+def test_el_rotulo_corrido_va_arriba_y_abajo_en_cada_pagina():
+    """Con `position:fixed` y desplazamiento negativo el navegador resuelve la
+    posicion UNA vez, contra la primera pagina, y luego repite el dibujo: el
+    rotulo acababa impreso al PIE de cada pagina, encima de la ultima linea del
+    texto. Con thead/tfoot se repite Y reserva su sitio.
+
+    Se comprueba sobre el PDF ya impreso, que es donde se veia el empalme.
+    """
+    from pypdf import PdfReader
+    f = FECHAS[0]
+    _h, b, _log = _docs(f)
+    tmp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_rot.html")
+    pdfp = tmp[:-5] + ".pdf"
+    io.open(tmp, "w", encoding="utf-8").write(b)
+    ok, det = pdf.imprimir(tmp, pdfp)
+    assert ok, f"no se pudo imprimir: {det}"
+    try:
+        for i, pg in enumerate(PdfReader(pdfp).pages, 1):
+            ls = [l for l in (pg.extract_text() or "").splitlines()
+                  if l.strip()]
+            assert ls, f"página {i} vacía"
+            assert "ESTRATEGIA SEMANAL" in ls[0].upper(), (
+                f"página {i}: la cabecera no abre la página, abre «{ls[0][:40]}»")
+            assert "Lectura, no recomendación" in ls[-1], (
+                f"página {i}: el pie no cierra la página, cierra «{ls[-1][:40]}»")
+    finally:
+        for x in (tmp, pdfp):
+            try:
+                os.remove(x)
+            except OSError:
+                pass
+
+
 def test_una_sola_ejecucion_genera_ambos():
     """El pipeline no tiene un comando aparte para el PDF."""
     src = io.open("run_snapshot.py", encoding="utf-8").read()
