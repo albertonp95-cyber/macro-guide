@@ -41,14 +41,19 @@ def motor() -> str | None:
     return None
 
 
-def imprimir(html_path: str, pdf_path: str, timeout: int = 120) -> tuple[bool, str]:
+def imprimir(html_path: str, pdf_path: str, timeout: int = 300) -> tuple[bool, str]:
     """Imprime `html_path` en `pdf_path`. Devuelve (ok, detalle)."""
     exe = motor()
     if not exe:
         return False, "no hay navegador headless en la máquina"
     perfil = tempfile.mkdtemp(prefix="brief-")
     url = "file:///" + os.path.abspath(html_path).replace("\\", "/")
+    # `--disable-dev-shm-usage` es imprescindible en CI: los contenedores dan
+    # un /dev/shm diminuto y Chrome se queda colgado sin decir nada, que es
+    # como se manifesto la primera corrida en la nube --"el navegador no
+    # respondio a tiempo"-- con el navegador instalado y funcionando.
     base = [exe, "--headless=new", "--disable-gpu", "--no-sandbox",
+            "--disable-dev-shm-usage",
             "--no-pdf-header-footer", f"--user-data-dir={perfil}",
             "--virtual-time-budget=4000",
             f"--print-to-pdf={os.path.abspath(pdf_path)}", url]
