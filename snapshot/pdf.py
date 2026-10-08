@@ -62,14 +62,20 @@ def imprimir(html_path: str, pdf_path: str, timeout: int = 180) -> tuple[bool, s
 
     def intento(modo: str) -> tuple[bool, str]:
         perfil = tempfile.mkdtemp(prefix="semanal-")
+        # SIN `--virtual-time-budget`. El tiempo virtual solo avanza cuando la
+        # pagina esta ociosa, y con los siete SVG del Tape nunca alcanzaba el
+        # presupuesto: Chrome no salia jamas. En el runner de GitHub costo
+        # cuatro corridas descubrirlo, porque una pagina trivial SI termina y
+        # el navegador parecia roto. El documento no carga nada asincrono, asi
+        # que no hay nada que esperar.
+        #
+        # Y sin `--no-zygote`, que mantiene vivo el proceso despues de imprimir
+        # y convierte cualquier espera en una espera infinita.
         cmd = [exe, modo, "--disable-gpu", "--no-sandbox",
-               # Imprescindibles en CI: el contenedor da un /dev/shm diminuto
-               # y sin zygote Chrome se cuelga sin decir nada.
-               "--disable-dev-shm-usage", "--no-zygote",
-               "--disable-software-rasterizer", "--hide-scrollbars",
+               # El contenedor de CI da un /dev/shm diminuto.
+               "--disable-dev-shm-usage", "--hide-scrollbars",
                "--no-first-run", "--no-default-browser-check",
                "--no-pdf-header-footer", f"--user-data-dir={perfil}",
-               "--virtual-time-budget=10000",
                f"--print-to-pdf={salida}", url]
         try:
             r = subprocess.run(cmd, capture_output=True, timeout=timeout)
