@@ -57,6 +57,25 @@ jobs:
             echo "::error::no hay navegador headless en el runner"; exit 1; }
           google-chrome --version || chromium --version
 
+      - name: Probar que el navegador imprime algo
+        # Separa "Chrome no imprime en este runner" de "nuestro documento lo
+        # cuelga". Sin esta prueba cada hipotesis cuesta una corrida entera.
+        timeout-minutes: 3
+        run: |
+          echo '<html><body><h1>prueba</h1></body></html>' > /tmp/p.html
+          for M in "--headless=new" "--headless"; do
+            for EXTRA in "--virtual-time-budget=10000" ""; do
+              rm -f /tmp/p.pdf
+              echo "--- $M $EXTRA"
+              timeout 45 google-chrome $M --disable-gpu --no-sandbox                 --disable-dev-shm-usage --no-pdf-header-footer                 --user-data-dir=$(mktemp -d) $EXTRA                 --print-to-pdf=/tmp/p.pdf file:///tmp/p.html 2>&1 | tail -3
+              if [ -s /tmp/p.pdf ]; then
+                echo "    OK  $(stat -c%s /tmp/p.pdf) bytes"
+              else
+                echo "    sin PDF (codigo $?)"
+              fi
+            done
+          done
+
       - name: Traer el estado privado
         env:
           CLAVE: ${{ secrets.ESTADO_DEPLOY_KEY }}
