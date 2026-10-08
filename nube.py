@@ -9,7 +9,9 @@ QUÉ VIAJA, Y POR QUÉ NO ESTÁ EN EL REPO PÚBLICO
 -----------------------------------------------
 Tres cosas que el pipeline no puede regenerar en la nube:
 
-  data/cache/bbg_*.csv   las dos series OAS de la Terminal
+  data/cache/*.csv       las series: las dos OAS de la Terminal, y la cache
+                         publica de FRED y Yahoo, que viaja para que el runner
+                         no dependa de descargar 29 series a tiempo
   data/historico/*.json  el archivo de estados (guarda sus percentiles)
   docs/registro.json     el registro de research (extractos de terceros)
 
@@ -41,6 +43,12 @@ REPO = "https://github.com/albertonp95-cyber/macro-guide-estado.git"
 # Qué se sincroniza. `patron` es relativo a la raíz del proyecto.
 PARTES = [
     ("data/cache", "bbg_*.csv", "series OAS de la Terminal"),
+    # La cache publica --FRED y Yahoo-- no tiene problema de licencia, pero
+    # viaja igual: el runner tardaba 40 s por serie contra FRED y se quedaba
+    # sin ninguna. Con la cache delante, una descarga lenta es un aviso y no
+    # una corrida perdida.
+    ("data/cache", "fred_*.csv", "caché de FRED"),
+    ("data/cache", "prices.csv", "caché de precios"),
     ("data/historico", "*.json", "archivo de estados"),
     ("docs", "registro.json", "registro de research"),
 ]

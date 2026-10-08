@@ -68,7 +68,7 @@ jobs:
           git clone -q --depth 1 \
             git@github.com:albertonp95-cyber/macro-guide-estado.git ../estado
           mkdir -p data/cache data/historico docs
-          cp -v ../estado/data/cache/bbg_*.csv       data/cache/   || true
+          cp -v ../estado/data/cache/*.csv           data/cache/   || true
           cp -v ../estado/data/historico/*.json      data/historico/ || true
           cp -v ../estado/docs/registro.json         docs/         || true
 
@@ -80,6 +80,9 @@ jobs:
             echo "::error::falta la cache de HY OAS: la lectura saldria con el proxy"; exit 1; }
           test -s data/cache/bbg_ig_oas.csv || {
             echo "::error::falta la cache de IG OAS"; exit 1; }
+          N=$(ls data/cache/fred_*.csv 2>/dev/null | wc -l)
+          test "$N" -ge 20 || {
+            echo "::error::solo $N series de FRED en cache; el runner depende"                 "de ella porque descargar 29 contra FRED se agota"; exit 1; }
           ls data/historico/*.json >/dev/null 2>&1 || {
             echo "::error::falta el archivo historico: «que cambio» saldria vacio"; exit 1; }
 

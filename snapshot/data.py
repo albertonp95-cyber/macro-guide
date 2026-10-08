@@ -82,6 +82,13 @@ def load_macro(force: bool = False) -> tuple[pd.DataFrame, dict[str, pd.Timestam
         out[sid] = s
 
     df = pd.DataFrame(out).sort_index()
+    if df.empty or df.index.empty:
+        # Pasa cuando no hay red NI cache: `df.index.min()` de un marco vacio
+        # devuelve NaN, y comparar un Timestamp con un float reventaba con un
+        # TypeError que no decia nada. Una lectura sin datos no es una lectura.
+        raise RuntimeError(
+            "ninguna serie macro tiene datos: no hubo red y tampoco caché en "
+            f"{CACHE_DIR}. No se puede construir una lectura sin datos.")
     start = max(df.index.min(), pd.Timestamp(config.DATA_START))
     idx = pd.date_range(start, pd.Timestamp.today().normalize(), freq="B")
     df = df.reindex(df.index.union(idx)).ffill().reindex(idx)
