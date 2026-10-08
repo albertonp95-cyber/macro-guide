@@ -108,6 +108,30 @@ jobs:
       - name: Generar el snapshot y su copia publica
         run: python run_snapshot.py
 
+      - name: Por qué no imprime ESTE documento
+        # El navegador imprime una pagina trivial en menos de un segundo, asi
+        # que lo que se cuelga es el documento. La sospecha es la tabla
+        # thead/tfoot del rotulo corrido: Chrome repagina mal una tabla que
+        # abarca seis paginas. Esto lo decide en una corrida en vez de en
+        # cuatro hipotesis.
+        if: always()
+        timeout-minutes: 4
+        run: |
+          H=$(ls output/snapshot-*-semanal.html | tail -1)
+          echo "documento: $H ($(stat -c%s "$H") bytes)"
+          prueba () {
+            rm -f /tmp/d.pdf
+            timeout 60 google-chrome --headless=new --disable-gpu --no-sandbox               --disable-dev-shm-usage --no-pdf-header-footer               --user-data-dir=$(mktemp -d)               --print-to-pdf=/tmp/d.pdf "file://$2" >/dev/null 2>&1
+            if [ -s /tmp/d.pdf ]; then
+              echo "  $1: OK  $(stat -c%s /tmp/d.pdf) bytes"
+            else
+              echo "  $1: SE CUELGA"
+            fi
+          }
+          prueba "tal cual" "$(realpath "$H")"
+          sed -e 's#<table class="hoja">##' -e 's#</table>##'               -e 's#<thead>.*</thead>##' -e 's#<tfoot>.*</tfoot>##'               -e 's#<tbody><tr><td>##' -e 's#</td></tr></tbody>##'               "$H" > /tmp/sin.html
+          prueba "sin la tabla" /tmp/sin.html
+
       - name: Indice del sitio
         run: python publicar_sitio.py
 
