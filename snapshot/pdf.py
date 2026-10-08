@@ -29,7 +29,12 @@ def motor() -> str | None:
     for c in CANDIDATOS:
         if os.path.isfile(c):
             return c
-    for n in ("chrome", "msedge", "chromium"):
+    # `google-chrome` y `chromium-browser` son los nombres que usan las
+    # distribuciones Linux --y los runners de GitHub-- donde no hay chrome.exe.
+    # Sin ellos, el mismo codigo que imprime en Windows no encontraba navegador
+    # en la nube y el PDF se quedaba sin generar.
+    for n in ("chrome", "msedge", "chromium", "google-chrome",
+              "google-chrome-stable", "chromium-browser"):
         p = shutil.which(n)
         if p:
             return p

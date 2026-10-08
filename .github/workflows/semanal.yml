@@ -1,0 +1,148 @@
+# La publicacion semanal, en la nube. Sustituye a la tarea del Programador de
+# Windows: ya no hace falta que la PC este encendida.
+#
+# POR QUE CLONA UN REPOSITORIO PRIVADO. Hay tres cosas que este runner no puede
+# regenerar: la cache de las dos series OAS de la Terminal, el archivo
+# historico de estados y el registro de research. Sin ellas el pipeline cae al
+# proxy de Moody's y publica OTRA LECTURA del mismo dia --medido el 28/09/2026,
+# credito 82 en vez de 69 y riesgo p72 en vez de p59--. Viven en
+# `macro-guide-estado`, privado por licencia de datos, y se entra con una clave
+# de despliegue acotada a ese repositorio.
+#
+# EL PDF NO SE PUBLICA. Lleva los valores sin redactar, asi que sale como
+# artefacto descargable y nunca al sitio. Lo que se publica es `site/`, que
+# pasa por `snapshot/publicar.py` y se verifica antes de escribirse.
+name: Semanal
+
+on:
+  schedule:
+    # Sabados 09:00 en Ciudad de Mexico (UTC-6, sin horario de verano desde
+    # 2022). `build_snapshot` retrocede al ultimo dia habil con dato, asi que
+    # correr en sabado publica el viernes.
+    - cron: "0 15 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: semanal
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Dependencias
+        run: pip install -r requirements.txt
+
+      - name: Navegador para imprimir el PDF
+        # El runner de ubuntu ya trae Google Chrome; `pdf.motor()` lo encuentra
+        # por nombre. Si algun dia deja de venir, esto lo deja dicho en el log
+        # en vez de fallar mas abajo sin explicacion.
+        run: |
+          which google-chrome || which chromium || {
+            echo "::error::no hay navegador headless en el runner"; exit 1; }
+          google-chrome --version || chromium --version
+
+      - name: Traer el estado privado
+        env:
+          CLAVE: ${{ secrets.ESTADO_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "$CLAVE" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          git clone -q --depth 1 \
+            git@github.com:albertonp95-cyber/macro-guide-estado.git ../estado
+          mkdir -p data/cache data/historico docs
+          cp -v ../estado/data/cache/bbg_*.csv       data/cache/   || true
+          cp -v ../estado/data/historico/*.json      data/historico/ || true
+          cp -v ../estado/docs/registro.json         docs/         || true
+
+      - name: Comprobar que el estado llego entero
+        # Sin esto, una clave caducada se manifestaria como una lectura
+        # distinta en vez de como un fallo, que es mucho peor.
+        run: |
+          test -s data/cache/bbg_hy_oas.csv || {
+            echo "::error::falta la cache de HY OAS: la lectura saldria con el proxy"; exit 1; }
+          test -s data/cache/bbg_ig_oas.csv || {
+            echo "::error::falta la cache de IG OAS"; exit 1; }
+          ls data/historico/*.json >/dev/null 2>&1 || {
+            echo "::error::falta el archivo historico: «que cambio» saldria vacio"; exit 1; }
+
+      - name: Generar el snapshot y su copia publica
+        run: python run_snapshot.py
+
+      - name: Indice del sitio
+        run: python publicar_sitio.py
+
+      - name: Verificar lo publicado
+        run: python publicar_sitio.py --verificar
+
+      - name: Fecha publicada
+        id: fecha
+        run: |
+          F=$(ls output/snapshot-????-??-??.html | sort | tail -1 \
+              | sed 's#.*snapshot-##; s#\.html##')
+          echo "valor=$F" >> "$GITHUB_OUTPUT"
+          echo "publicada: $F"
+
+      - name: "El PDF, como artefacto: nunca al sitio, va sin redactar"
+        uses: actions/upload-artifact@v4
+        with:
+          name: semanal-${{ steps.fecha.outputs.valor }}
+          path: output/snapshot-*-semanal.pdf
+          retention-days: 90
+
+      - name: Publicar site/
+        run: |
+          git config user.name "albertonp95-cyber"
+          git config user.email "279798657+albertonp95-cyber@users.noreply.github.com"
+          git add site
+          if git diff --cached --quiet; then
+            echo "sin cambios en site/: no hay nada que publicar."
+          else
+            git commit -q -m "Snapshot publicado: ${{ steps.fecha.outputs.valor }}
+
+          Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+            git push -q
+          fi
+
+      - name: Devolver el historico actualizado
+        # Es lo UNICO que esta corrida genera del estado privado. Las series de
+        # la Terminal y el registro de research los sube el usuario a mano.
+        run: |
+          cp -v data/historico/*.json ../estado/data/historico/
+          cd ../estado
+          git config user.name "albertonp95-cyber"
+          git config user.email "279798657+albertonp95-cyber@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "el historico no cambio."
+          else
+            git commit -q -m "Historico tras la corrida de ${{ steps.fecha.outputs.valor }}"
+            git push -q
+          fi
+
+      # El despliegue va aqui dentro, y no por el workflow `pages`: un push
+      # hecho con GITHUB_TOKEN no dispara otros workflows, asi que esperar a
+      # que `pages` reaccione al commit anterior seria esperar para siempre.
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
