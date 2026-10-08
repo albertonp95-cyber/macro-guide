@@ -41,38 +41,56 @@ def motor() -> str | None:
     return None
 
 
-def imprimir(html_path: str, pdf_path: str, timeout: int = 300) -> tuple[bool, str]:
-    """Imprime `html_path` en `pdf_path`. Devuelve (ok, detalle)."""
+def imprimir(html_path: str, pdf_path: str, timeout: int = 180) -> tuple[bool, str]:
+    """Imprime `html_path` en `pdf_path`. Devuelve (ok, detalle).
+
+    DOS INTENTOS, y el segundo tambien cuando el primero SE CUELGA. Antes el
+    reintento con `--headless` clasico solo ocurria si el primero terminaba sin
+    dejar fichero; si se quedaba colgado, el timeout devolvia "el navegador no
+    respondio a tiempo" y no se probaba nada mas. Es exactamente lo que pasaba
+    en el runner de GitHub, donde `--headless=new` no vuelve.
+
+    Y lo que diga el navegador SE DEVUELVE. Descartar su stderr convertia cada
+    fallo en una adivinanza: "no respondio a tiempo" no dice si falta una
+    biblioteca, si no hay sitio en /dev/shm o si el perfil no se pudo crear.
+    """
     exe = motor()
     if not exe:
         return False, "no hay navegador headless en la máquina"
-    perfil = tempfile.mkdtemp(prefix="brief-")
+    salida = os.path.abspath(pdf_path)
     url = "file:///" + os.path.abspath(html_path).replace("\\", "/")
-    # `--disable-dev-shm-usage` es imprescindible en CI: los contenedores dan
-    # un /dev/shm diminuto y Chrome se queda colgado sin decir nada, que es
-    # como se manifesto la primera corrida en la nube --"el navegador no
-    # respondio a tiempo"-- con el navegador instalado y funcionando.
-    base = [exe, "--headless=new", "--disable-gpu", "--no-sandbox",
-            "--disable-dev-shm-usage",
-            "--no-pdf-header-footer", f"--user-data-dir={perfil}",
-            "--virtual-time-budget=4000",
-            f"--print-to-pdf={os.path.abspath(pdf_path)}", url]
-    try:
-        r = subprocess.run(base, capture_output=True, timeout=timeout)
-        if not os.path.isfile(pdf_path) or os.path.getsize(pdf_path) < 1000:
-            # algunas versiones no aceptan --headless=new
-            base[1] = "--headless"
-            r = subprocess.run(base, capture_output=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return False, "el navegador no respondió a tiempo"
-    except Exception as e:                                   # noqa: BLE001
-        return False, f"{type(e).__name__}: {e}"
-    finally:
-        shutil.rmtree(perfil, ignore_errors=True)
-    if os.path.isfile(pdf_path) and os.path.getsize(pdf_path) > 1000:
-        return True, os.path.basename(exe)
-    err = (r.stderr or b"").decode("utf-8", "ignore")[-200:]
-    return False, f"el navegador no produjo PDF. {err}"
+
+    def intento(modo: str) -> tuple[bool, str]:
+        perfil = tempfile.mkdtemp(prefix="semanal-")
+        cmd = [exe, modo, "--disable-gpu", "--no-sandbox",
+               # Imprescindibles en CI: el contenedor da un /dev/shm diminuto
+               # y sin zygote Chrome se cuelga sin decir nada.
+               "--disable-dev-shm-usage", "--no-zygote",
+               "--disable-software-rasterizer", "--hide-scrollbars",
+               "--no-first-run", "--no-default-browser-check",
+               "--no-pdf-header-footer", f"--user-data-dir={perfil}",
+               "--virtual-time-budget=10000",
+               f"--print-to-pdf={salida}", url]
+        try:
+            r = subprocess.run(cmd, capture_output=True, timeout=timeout)
+            err = (r.stderr or b"").decode("utf-8", "ignore").strip()
+        except subprocess.TimeoutExpired:
+            return False, f"{modo}: no respondió en {timeout} s"
+        except Exception as e:                               # noqa: BLE001
+            return False, f"{modo}: {type(e).__name__}: {e}"
+        finally:
+            shutil.rmtree(perfil, ignore_errors=True)
+        if os.path.isfile(salida) and os.path.getsize(salida) > 1000:
+            return True, os.path.basename(exe)
+        return False, f"{modo}: sin PDF. {err[-300:]}"
+
+    ok, det = intento("--headless=new")
+    if ok:
+        return True, det
+    ok2, det2 = intento("--headless")
+    if ok2:
+        return True, det2
+    return False, f"{det} | {det2}"
 
 
 def paginas(pdf_path: str) -> int | None:
