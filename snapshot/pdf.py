@@ -13,6 +13,7 @@ Si no hay navegador, el brief queda en HTML y se dice. No se inventa un PDF.
 from __future__ import annotations
 
 import os
+import pathlib
 import shutil
 import subprocess
 import tempfile
@@ -58,7 +59,14 @@ def imprimir(html_path: str, pdf_path: str, timeout: int = 180) -> tuple[bool, s
     if not exe:
         return False, "no hay navegador headless en la máquina"
     salida = os.path.abspath(pdf_path)
-    url = "file:///" + os.path.abspath(html_path).replace("\\", "/")
+    # `Path.as_uri()` y no "file:///" + ruta. En Windows la ruta absoluta
+    # empieza por `C:` y concatenar daba una URL valida; en Linux empieza por
+    # `/` y salia `file:////home/...` con CUATRO barras. Chrome no carga esa
+    # pagina y se queda esperando para siempre --no da error--, que es como se
+    # manifesto en el runner: el navegador imprimia cualquier otra cosa en un
+    # segundo y este documento colgaba a los 180. Ademas `as_uri` escapa los
+    # espacios, que esta ruta tiene.
+    url = pathlib.Path(html_path).resolve().as_uri()
 
     def intento(modo: str) -> tuple[bool, str]:
         perfil = tempfile.mkdtemp(prefix="semanal-")
