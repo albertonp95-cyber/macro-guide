@@ -85,15 +85,32 @@ def imprimir(html_path: str, pdf_path: str, timeout: int = 180) -> tuple[bool, s
                "--no-first-run", "--no-default-browser-check",
                "--no-pdf-header-footer", f"--user-data-dir={perfil}",
                f"--print-to-pdf={salida}", url]
+        # La salida va a FICHEROS, no a tuberias. Con `capture_output=True`,
+        # `communicate()` espera el EOF de los descriptores; Chrome deja
+        # procesos hijos que los heredan y no los cierran, asi que el EOF no
+        # llega nunca y Python se queda esperando aunque el PDF ya este
+        # escrito. En Windows no se notaba y en el runner colgaba siempre.
+        log = tempfile.NamedTemporaryFile(prefix="semanal-", suffix=".log",
+                                          delete=False)
+        err = ""
         try:
-            r = subprocess.run(cmd, capture_output=True, timeout=timeout)
-            err = (r.stderr or b"").decode("utf-8", "ignore").strip()
+            with open(log.name, "wb") as fe:
+                subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=fe,
+                               stderr=fe, timeout=timeout)
+            with open(log.name, "rb") as fe:
+                err = fe.read().decode("utf-8", "ignore").strip()
         except subprocess.TimeoutExpired:
             return False, f"{modo}: no respondió en {timeout} s"
         except Exception as e:                               # noqa: BLE001
             return False, f"{modo}: {type(e).__name__}: {e}"
         finally:
-            shutil.rmtree(perfil, ignore_errors=True)
+            log.close()
+            for x in (perfil,):
+                shutil.rmtree(x, ignore_errors=True)
+            try:
+                os.remove(log.name)
+            except OSError:
+                pass
         if os.path.isfile(salida) and os.path.getsize(salida) > 1000:
             return True, os.path.basename(exe)
         return False, f"{modo}: sin PDF. {err[-300:]}"
