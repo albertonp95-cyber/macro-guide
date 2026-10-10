@@ -103,11 +103,20 @@ jobs:
           echo "valor=$F" >> "$GITHUB_OUTPUT"
           echo "publicada: $F"
 
-      - name: "El PDF, como artefacto: nunca al sitio, va sin redactar"
+      - name: "El semanal, como artefacto: nunca al sitio, va sin redactar"
+        # Van el HTML y el PDF. El HTML SIEMPRE: en este runner la impresión
+        # de Chrome se cuelga --el mismo navegador imprime una página trivial
+        # en un segundo, y el documento entero lanzado desde bash también,
+        # pero desde Python no vuelve-- y sin esto la corrida no dejaría nada
+        # que leer. El HTML lleva su propio CSS de impresión: se abre en un
+        # navegador y se imprime a PDF con el mismo resultado.
         uses: actions/upload-artifact@v4
         with:
           name: semanal-${{ steps.fecha.outputs.valor }}
-          path: output/snapshot-*-semanal.pdf
+          path: |
+            output/snapshot-*-semanal.html
+            output/snapshot-*-semanal.pdf
+          if-no-files-found: error
           retention-days: 90
 
       - name: Publicar site/
